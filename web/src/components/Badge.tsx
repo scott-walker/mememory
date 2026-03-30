@@ -1,0 +1,31 @@
+import type { Scope, MemoryType } from '../types';
+
+const SCOPE_COLORS: Record<Scope, string> = {
+  global: 'bg-scope-global/15 text-scope-global',
+  project: 'bg-scope-project/15 text-scope-project',
+  persona: 'bg-scope-persona/15 text-scope-persona',
+};
+
+const TYPE_COLORS: Record<MemoryType, string> = {
+  fact: 'bg-type-fact/15 text-type-fact',
+  rule: 'bg-type-rule/15 text-type-rule',
+  decision: 'bg-type-decision/15 text-type-decision',
+  feedback: 'bg-type-feedback/15 text-type-feedback',
+  context: 'bg-type-context/15 text-type-context',
+};
+
+export function ScopeBadge({ scope }: { scope: Scope }) {
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium ${SCOPE_COLORS[scope]}`}>
+      {scope}
+    </span>
+  );
+}
+
+export function TypeBadge({ type }: { type: MemoryType }) {
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium ${TYPE_COLORS[type]}`}>
+      {type}
+    </span>
+  );
+}

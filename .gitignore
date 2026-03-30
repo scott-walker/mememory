@@ -1,0 +1,8 @@
+bin/
+data/
+*.db
+.env
+memory-server
+memory-admin
+web/node_modules/
+web/dist/

@@ -1,0 +1,56 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: claude-memory-qdrant
+    restart: unless-stopped
+    ports:
+      - "${QDRANT_PORT_REST:-6333}:6333"
+      - "${QDRANT_PORT_GRPC:-6334}:6334"
+    volumes:
+      - ${MEMORY_DATA_DIR:-~/.claude-memory}/qdrant:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__GRPC_PORT: "6334"
+    healthcheck:
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/localhost/6333 && echo -e 'GET /healthz HTTP/1.0\r\nHost: localhost\r\n\r\n' >&3 && cat <&3 | grep -q 200"]
+      start_period: 10s
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ollama:
+    build:
+      context: ..
+      dockerfile: docker/ollama.Dockerfile
+    container_name: claude-memory-ollama
+    restart: unless-stopped
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    volumes:
+      - ${MEMORY_DATA_DIR:-~/.claude-memory}/ollama:/root/.ollama
+    environment:
+      OLLAMA_HOST: "0.0.0.0:11434"
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 12
+
+  admin:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: claude-memory-admin
+    restart: unless-stopped
+    ports:
+      - "${ADMIN_PORT:-4200}:4200"
+    environment:
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6334"
+      OLLAMA_URL: http://ollama:11434
+      ADMIN_PORT: "4200"
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
