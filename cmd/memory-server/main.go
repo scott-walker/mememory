@@ -43,7 +43,7 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Failed to connect to PostgreSQL: %v", err)
 	}
-	defer pgClient.Close()
+	defer func() { _ = pgClient.Close() }()
 
 	logger.Println("Running migrations")
 	if err := pgClient.RunMigrations(context.Background()); err != nil {
@@ -146,7 +146,7 @@ func runBootstrap(project, persona string) {
 		fmt.Fprintf(os.Stderr, "bootstrap: failed to connect to PostgreSQL: %v\n", err)
 		os.Exit(1)
 	}
-	defer pgClient.Close()
+	defer func() { _ = pgClient.Close() }()
 
 	ctx := context.Background()
 

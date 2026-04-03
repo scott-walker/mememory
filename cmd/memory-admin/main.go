@@ -35,7 +35,7 @@ func main() {
 	if err != nil {
 		logger.Fatalf("Failed to connect to PostgreSQL: %v", err)
 	}
-	defer pgClient.Close()
+	defer func() { _ = pgClient.Close() }()
 
 	logger.Println("Running migrations")
 	if err := pgClient.RunMigrations(context.Background()); err != nil {

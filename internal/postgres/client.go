@@ -120,7 +120,7 @@ func (c *Client) Search(ctx context.Context, embedding []float32, filter Filter,
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return scanResults(rows)
 }
@@ -142,7 +142,7 @@ func (c *Client) SearchWithWhere(ctx context.Context, embedding []float32, where
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	return scanResults(rows)
 }
