@@ -5,6 +5,7 @@ export default defineConfig({
   description: 'Persistent memory for AI agents',
   base: '/mememory/',
   ignoreDeadLinks: [/localhost/],
+  appearance: false,
   head: [
     ['link', { rel: 'preconnect', href: 'https://fonts.googleapis.com' }],
     ['link', { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' }],
