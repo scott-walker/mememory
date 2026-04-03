@@ -24,11 +24,66 @@
   --vp-c-divider: #f1f5f9;
   --vp-c-gutter: #f1f5f9;
 
-  /* Code */
+  /* Code blocks */
   --vp-code-bg: #f8fafc;
   --vp-c-mute: #f1f5f9;
   --vp-c-mute-dark: #e2e8f0;
   --vp-c-mute-darker: #cbd5e1;
+
+  /* Syntax highlighting — light colorful theme */
+  --shiki-color-text: #334155;
+  --shiki-color-background: #f8fafc;
+  --shiki-token-constant: #7c3aed;
+  --shiki-token-string: #059669;
+  --shiki-token-comment: #94a3b8;
+  --shiki-token-keyword: #2563eb;
+  --shiki-token-parameter: #0f172a;
+  --shiki-token-function: #c026d3;
+  --shiki-token-string-expression: #059669;
+  --shiki-token-punctuation: #64748b;
+  --shiki-token-link: #2563eb;
+}
+
+/* Scrollbars — thin, slate, minimal */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Code block scrollbars */
+.vp-doc div[class*="language-"] ::-webkit-scrollbar {
+  height: 4px;
+}
+
+.vp-doc div[class*="language-"] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.vp-doc div[class*="language-"] ::-webkit-scrollbar-thumb {
+  background: #e2e8f0;
+  border-radius: 2px;
+}
+
+.vp-doc div[class*="language-"] ::-webkit-scrollbar-thumb:hover {
+  background: #cbd5e1;
 }
 
 /* Nav — white bg, thin bottom border */
