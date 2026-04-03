@@ -5,35 +5,28 @@ import (
 	"fmt"
 	"math"
 	"sort"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	pb "github.com/qdrant/go-client/qdrant"
-	"github.com/scott/claude-memory/internal/embeddings"
-	qdrantclient "github.com/scott/claude-memory/internal/qdrant"
+	"github.com/scott-walker/mememory/internal/embeddings"
+	pg "github.com/scott-walker/mememory/internal/postgres"
 )
 
 const (
-	// Contradiction detection threshold — similarity above this triggers a warning
 	contradictionThreshold float32 = 0.75
-
-	// Temporal decay lambda — gentle decay: 0.01 means ~37% reduction after 100 days
-	decayLambda = 0.005
-
-	// Scope weights for recall scoring
-	scopeWeightPersona = 1.0
-	scopeWeightProject = 0.8
-	scopeWeightGlobal  = 0.6
+	decayLambda                    = 0.005
+	scopeWeightPersona             = 1.0
+	scopeWeightProject             = 0.8
+	scopeWeightGlobal              = 0.6
 )
 
 type Service struct {
-	qdrant *qdrantclient.Client
-	embed  *embeddings.Client
+	pg    *pg.Client
+	embed embeddings.Embedder
 }
 
-func NewService(qdrant *qdrantclient.Client, embed *embeddings.Client) *Service {
-	return &Service{qdrant: qdrant, embed: embed}
+func NewService(pgClient *pg.Client, embed embeddings.Embedder) *Service {
+	return &Service{pg: pgClient, embed: embed}
 }
 
 func (s *Service) Remember(ctx context.Context, input RememberInput) (*RememberResult, error) {
@@ -46,10 +39,7 @@ func (s *Service) Remember(ctx context.Context, input RememberInput) (*RememberR
 	if input.Type == "" {
 		input.Type = TypeFact
 	}
-	if input.Weight <= 0 {
-		input.Weight = 1.0
-	}
-	if input.Weight > 1.0 {
+	if input.Weight <= 0 || input.Weight > 1.0 {
 		input.Weight = 1.0
 	}
 
@@ -58,7 +48,6 @@ func (s *Service) Remember(ctx context.Context, input RememberInput) (*RememberR
 		return nil, fmt.Errorf("embed: %w", err)
 	}
 
-	// Contradiction detection — search for similar memories before storing
 	contradictions := s.findContradictions(ctx, vector, input)
 
 	now := time.Now().UTC()
@@ -87,37 +76,12 @@ func (s *Service) Remember(ctx context.Context, input RememberInput) (*RememberR
 		mem.TTL = &ttl
 	}
 
-	payload := map[string]interface{}{
-		"content":    mem.Content,
-		"scope":      string(mem.Scope),
-		"type":       string(mem.Type),
-		"weight":     fmt.Sprintf("%.2f", mem.Weight),
-		"created_at": mem.CreatedAt.Format(time.RFC3339),
-		"updated_at": mem.UpdatedAt.Format(time.RFC3339),
-	}
-	if mem.Project != "" {
-		payload["project"] = mem.Project
-	}
-	if mem.Persona != "" {
-		payload["persona"] = mem.Persona
-	}
-	if len(mem.Tags) > 0 {
-		payload["tags"] = strings.Join(mem.Tags, ",")
-	}
-	if mem.TTL != nil {
-		payload["ttl"] = mem.TTL.Format(time.RFC3339)
-	}
-	if mem.Supersedes != "" {
-		payload["supersedes"] = mem.Supersedes
-	}
-
-	if err := s.qdrant.Upsert(ctx, id, vector, payload); err != nil {
+	if err := s.pg.Upsert(ctx, id, vector, mem); err != nil {
 		return nil, fmt.Errorf("store: %w", err)
 	}
 
-	// If this memory supersedes another, lower the old one's weight
 	if input.Supersedes != "" {
-		_ = s.lowerWeight(ctx, input.Supersedes, 0.1)
+		_ = s.pg.UpdateWeight(ctx, input.Supersedes, 0.1)
 	}
 
 	return &RememberResult{
@@ -126,10 +90,9 @@ func (s *Service) Remember(ctx context.Context, input RememberInput) (*RememberR
 	}, nil
 }
 
-// findContradictions searches for semantically similar existing memories that might conflict.
 func (s *Service) findContradictions(ctx context.Context, vector []float32, input RememberInput) []ContradictionMatch {
-	filter := buildRecallFilter(string(input.Scope), input.Project, input.Persona)
-	hits, err := s.qdrant.Search(ctx, vector, filter, 5)
+	where, args := pg.HierarchicalWhere(string(input.Scope), input.Project, input.Persona, 1)
+	hits, err := s.pg.SearchWithWhere(ctx, vector, where, args, 5)
 	if err != nil {
 		return nil
 	}
@@ -139,47 +102,15 @@ func (s *Service) findContradictions(ctx context.Context, vector []float32, inpu
 		if hit.Score < contradictionThreshold {
 			continue
 		}
-		mem := payloadToMemory(hit.ID, hit.Payload)
-		// Skip expired
-		if mem.TTL != nil && mem.TTL.Before(time.Now().UTC()) {
+		if hit.Memory.TTL != nil && hit.Memory.TTL.Before(time.Now().UTC()) {
 			continue
 		}
 		matches = append(matches, ContradictionMatch{
-			Memory:     mem,
+			Memory:     hit.Memory,
 			Similarity: hit.Score,
 		})
 	}
 	return matches
-}
-
-// lowerWeight reduces the weight of an existing memory (used when superseded).
-func (s *Service) lowerWeight(ctx context.Context, id string, newWeight float64) error {
-	filter := &pb.Filter{
-		Must: []*pb.Condition{idCondition(id)},
-	}
-	existing, err := s.qdrant.Scroll(ctx, filter, 1)
-	if err != nil || len(existing) == 0 {
-		return err
-	}
-
-	oldPayload := existing[0].Payload
-	payload := make(map[string]interface{})
-	for k, v := range oldPayload {
-		payload[k] = v.GetStringValue()
-	}
-	payload["weight"] = fmt.Sprintf("%.2f", newWeight)
-	payload["updated_at"] = time.Now().UTC().Format(time.RFC3339)
-
-	// Re-embed not needed — only payload update. Use Upsert with same vector.
-	// Since we don't have the vector, we scroll with vector — but Qdrant scroll doesn't return vectors.
-	// Workaround: embed the content again.
-	content := oldPayload["content"].GetStringValue()
-	vector, err := s.embed.EmbedOne(ctx, content)
-	if err != nil {
-		return err
-	}
-
-	return s.qdrant.Upsert(ctx, id, vector, payload)
 }
 
 func (s *Service) Recall(ctx context.Context, input RecallInput) ([]RecallResult, error) {
@@ -195,61 +126,49 @@ func (s *Service) Recall(ctx context.Context, input RecallInput) ([]RecallResult
 		return nil, fmt.Errorf("embed query: %w", err)
 	}
 
-	filter := buildRecallFilter(input.Scope, input.Project, input.Persona)
-
-	// Fetch more than needed to compensate for filtering
-	fetchLimit := uint64(input.Limit * 3)
+	fetchLimit := input.Limit * 3
 	if fetchLimit < 15 {
 		fetchLimit = 15
 	}
 
-	hits, err := s.qdrant.Search(ctx, vector, filter, fetchLimit)
+	where, args := pg.HierarchicalWhere(input.Scope, input.Project, input.Persona, 1)
+	hits, err := s.pg.SearchWithWhere(ctx, vector, where, args, fetchLimit)
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
 	}
 
 	now := time.Now().UTC()
 
-	// Collect superseded IDs for filtering
 	supersededIDs := make(map[string]bool)
 	for _, hit := range hits {
-		if v, ok := hit.Payload["supersedes"]; ok {
-			if sid := v.GetStringValue(); sid != "" {
-				supersededIDs[sid] = true
-			}
+		if hit.Memory.Supersedes != "" {
+			supersededIDs[hit.Memory.Supersedes] = true
 		}
 	}
 
 	results := make([]RecallResult, 0, len(hits))
 	for _, hit := range hits {
-		mem := payloadToMemory(hit.ID, hit.Payload)
-
-		// Skip expired
-		if mem.TTL != nil && mem.TTL.Before(now) {
+		if hit.Memory.TTL != nil && hit.Memory.TTL.Before(now) {
 			continue
 		}
-		// Skip superseded memories
-		if supersededIDs[mem.ID] {
+		if supersededIDs[hit.Memory.ID] {
 			continue
 		}
 
-		// Compute final score: similarity * scope_weight * weight * decay(age)
-		sw := scopeWeight(mem.Scope)
-		decay := temporalDecay(now.Sub(mem.UpdatedAt))
-		finalScore := float64(hit.Score) * sw * mem.Weight * decay
+		sw := scopeWeight(hit.Memory.Scope)
+		decay := temporalDecay(now.Sub(hit.Memory.UpdatedAt))
+		finalScore := float64(hit.Score) * sw * hit.Memory.Weight * decay
 
 		results = append(results, RecallResult{
-			Memory: mem,
+			Memory: hit.Memory,
 			Score:  float32(finalScore),
 		})
 	}
 
-	// Re-sort by computed score
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].Score > results[j].Score
 	})
 
-	// Trim to requested limit
 	if len(results) > input.Limit {
 		results = results[:input.Limit]
 	}
@@ -277,7 +196,7 @@ func temporalDecay(age time.Duration) float64 {
 }
 
 func (s *Service) Forget(ctx context.Context, id string) error {
-	return s.qdrant.Delete(ctx, id)
+	return s.pg.Delete(ctx, id)
 }
 
 func (s *Service) Update(ctx context.Context, id string, content string) (*Memory, error) {
@@ -285,17 +204,11 @@ func (s *Service) Update(ctx context.Context, id string, content string) (*Memor
 		return nil, fmt.Errorf("content is required")
 	}
 
-	// Retrieve existing point to preserve metadata
-	filter := &pb.Filter{
-		Must: []*pb.Condition{
-			idCondition(id),
-		},
-	}
-	existing, err := s.qdrant.Scroll(ctx, filter, 1)
+	existing, err := s.pg.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("retrieve existing: %w", err)
 	}
-	if len(existing) == 0 {
+	if existing == nil {
 		return nil, fmt.Errorf("memory %s not found", id)
 	}
 
@@ -304,27 +217,14 @@ func (s *Service) Update(ctx context.Context, id string, content string) (*Memor
 		return nil, fmt.Errorf("embed: %w", err)
 	}
 
-	now := time.Now().UTC()
-	oldPayload := existing[0].Payload
+	existing.Content = content
+	existing.UpdatedAt = time.Now().UTC()
 
-	payload := make(map[string]interface{})
-	payload["content"] = content
-	payload["updated_at"] = now.Format(time.RFC3339)
-
-	for _, key := range []string{"scope", "project", "persona", "type", "tags", "weight", "supersedes", "created_at", "ttl"} {
-		if v, ok := oldPayload[key]; ok {
-			payload[key] = v.GetStringValue()
-		}
-	}
-
-	if err := s.qdrant.Upsert(ctx, id, vector, payload); err != nil {
+	if err := s.pg.Upsert(ctx, id, vector, existing); err != nil {
 		return nil, fmt.Errorf("upsert: %w", err)
 	}
 
-	mem := payloadToMemory(id, oldPayload)
-	mem.Content = content
-	mem.UpdatedAt = now
-	return &mem, nil
+	return existing, nil
 }
 
 func (s *Service) List(ctx context.Context, input ListInput) ([]Memory, error) {
@@ -332,228 +232,35 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]Memory, error) {
 		input.Limit = 20
 	}
 
-	var conditions []*pb.Condition
-	if input.Scope != "" {
-		conditions = append(conditions, fieldMatch("scope", input.Scope))
-	}
-	if input.Project != "" {
-		conditions = append(conditions, fieldMatch("project", input.Project))
-	}
-	if input.Persona != "" {
-		conditions = append(conditions, fieldMatch("persona", input.Persona))
-	}
-	if input.Type != "" {
-		conditions = append(conditions, fieldMatch("type", input.Type))
+	filter := pg.Filter{
+		Scope:   input.Scope,
+		Project: input.Project,
+		Persona: input.Persona,
+		Type:    input.Type,
 	}
 
-	var filter *pb.Filter
-	if len(conditions) > 0 {
-		filter = &pb.Filter{Must: conditions}
-	}
-
-	hits, err := s.qdrant.Scroll(ctx, filter, uint32(input.Limit))
+	memories, err := s.pg.List(ctx, filter, input.Limit)
 	if err != nil {
 		return nil, fmt.Errorf("list: %w", err)
 	}
 
-	memories := make([]Memory, 0, len(hits))
-	for _, hit := range hits {
-		mem := payloadToMemory(hit.ID, hit.Payload)
-		if mem.TTL != nil && mem.TTL.Before(time.Now().UTC()) {
+	// Filter expired client-side (simple, covers edge cases)
+	now := time.Now().UTC()
+	var result []Memory
+	for _, m := range memories {
+		if m.TTL != nil && m.TTL.Before(now) {
 			continue
 		}
-		memories = append(memories, mem)
-	}
-
-	return memories, nil
-}
-
-func (s *Service) Stats(ctx context.Context) (*StatsResult, error) {
-	total, err := s.qdrant.Count(ctx, nil)
-	if err != nil {
-		return nil, fmt.Errorf("count total: %w", err)
-	}
-
-	result := &StatsResult{
-		Total:     total,
-		ByScope:   make(map[string]uint64),
-		ByProject: make(map[string]uint64),
-		ByPersona: make(map[string]uint64),
-		ByType:    make(map[string]uint64),
-	}
-
-	for _, scope := range []string{"global", "project", "persona"} {
-		count, err := s.qdrant.Count(ctx, &pb.Filter{Must: []*pb.Condition{fieldMatch("scope", scope)}})
-		if err != nil {
-			continue
-		}
-		if count > 0 {
-			result.ByScope[scope] = count
-		}
-	}
-
-	for _, typ := range []string{"fact", "rule", "decision", "feedback", "context"} {
-		count, err := s.qdrant.Count(ctx, &pb.Filter{Must: []*pb.Condition{fieldMatch("type", typ)}})
-		if err != nil {
-			continue
-		}
-		if count > 0 {
-			result.ByType[typ] = count
-		}
+		result = append(result, m)
 	}
 
 	return result, nil
 }
 
-// CleanExpired removes memories with TTL in the past by scrolling all points
-// and deleting those with expired TTL client-side.
+func (s *Service) Stats(ctx context.Context) (*StatsResult, error) {
+	return s.pg.Stats(ctx)
+}
+
 func (s *Service) CleanExpired(ctx context.Context) (int, error) {
-	points, err := s.qdrant.Scroll(ctx, nil, 1000)
-	if err != nil {
-		return 0, fmt.Errorf("scroll: %w", err)
-	}
-
-	now := time.Now().UTC()
-	var deleted int
-	for _, p := range points {
-		if v, ok := p.Payload["ttl"]; ok {
-			if t, err := time.Parse(time.RFC3339, v.GetStringValue()); err == nil && t.Before(now) {
-				if err := s.qdrant.Delete(ctx, p.ID); err == nil {
-					deleted++
-				}
-			}
-		}
-	}
-
-	return deleted, nil
-}
-
-// --- Filter builders ---
-
-func buildRecallFilter(scope, project, persona string) *pb.Filter {
-	var shouldClauses []*pb.Condition
-
-	// Always include global scope
-	shouldClauses = append(shouldClauses, fieldMatch("scope", "global"))
-
-	// Include project scope if project specified
-	if project != "" {
-		shouldClauses = append(shouldClauses, &pb.Condition{
-			ConditionOneOf: &pb.Condition_Filter{
-				Filter: &pb.Filter{
-					Must: []*pb.Condition{
-						fieldMatch("scope", "project"),
-						fieldMatch("project", project),
-					},
-				},
-			},
-		})
-	}
-
-	// Include persona scope if persona specified
-	if persona != "" {
-		personaConditions := []*pb.Condition{
-			fieldMatch("scope", "persona"),
-			fieldMatch("persona", persona),
-		}
-		if project != "" {
-			personaConditions = append(personaConditions, fieldMatch("project", project))
-		}
-		shouldClauses = append(shouldClauses, &pb.Condition{
-			ConditionOneOf: &pb.Condition_Filter{
-				Filter: &pb.Filter{
-					Must: personaConditions,
-				},
-			},
-		})
-	}
-
-	// If explicit scope filter requested (no hierarchy)
-	if scope != "" && project == "" && persona == "" {
-		return &pb.Filter{
-			Must: []*pb.Condition{fieldMatch("scope", scope)},
-		}
-	}
-
-	return &pb.Filter{
-		Should: shouldClauses,
-	}
-}
-
-func fieldMatch(key, value string) *pb.Condition {
-	return &pb.Condition{
-		ConditionOneOf: &pb.Condition_Field{
-			Field: &pb.FieldCondition{
-				Key: key,
-				Match: &pb.Match{
-					MatchValue: &pb.Match_Keyword{
-						Keyword: value,
-					},
-				},
-			},
-		},
-	}
-}
-
-func idCondition(id string) *pb.Condition {
-	return &pb.Condition{
-		ConditionOneOf: &pb.Condition_HasId{
-			HasId: &pb.HasIdCondition{
-				HasId: []*pb.PointId{pb.NewIDUUID(id)},
-			},
-		},
-	}
-}
-
-func payloadToMemory(id string, payload map[string]*pb.Value) Memory {
-	mem := Memory{ID: id, Weight: 1.0} // Default weight
-
-	if v, ok := payload["content"]; ok {
-		mem.Content = v.GetStringValue()
-	}
-	if v, ok := payload["scope"]; ok {
-		mem.Scope = Scope(v.GetStringValue())
-	}
-	if v, ok := payload["project"]; ok {
-		mem.Project = v.GetStringValue()
-	}
-	if v, ok := payload["persona"]; ok {
-		mem.Persona = v.GetStringValue()
-	}
-	if v, ok := payload["type"]; ok {
-		mem.Type = MemoryType(v.GetStringValue())
-	}
-	if v, ok := payload["tags"]; ok {
-		if tags := v.GetStringValue(); tags != "" {
-			mem.Tags = strings.Split(tags, ",")
-		}
-	}
-	if v, ok := payload["weight"]; ok {
-		if w := v.GetStringValue(); w != "" {
-			var parsed float64
-			if _, err := fmt.Sscanf(w, "%f", &parsed); err == nil && parsed > 0 {
-				mem.Weight = parsed
-			}
-		}
-	}
-	if v, ok := payload["supersedes"]; ok {
-		mem.Supersedes = v.GetStringValue()
-	}
-	if v, ok := payload["created_at"]; ok {
-		if t, err := time.Parse(time.RFC3339, v.GetStringValue()); err == nil {
-			mem.CreatedAt = t
-		}
-	}
-	if v, ok := payload["updated_at"]; ok {
-		if t, err := time.Parse(time.RFC3339, v.GetStringValue()); err == nil {
-			mem.UpdatedAt = t
-		}
-	}
-	if v, ok := payload["ttl"]; ok {
-		if t, err := time.Parse(time.RFC3339, v.GetStringValue()); err == nil {
-			mem.TTL = &t
-		}
-	}
-
-	return mem
+	return s.pg.CleanExpired(ctx)
 }

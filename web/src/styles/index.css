@@ -44,3 +44,15 @@ body {
   outline: none;
   box-sizing: border-box;
 }
+
+.prose { line-height: 1.7; }
+.prose p { margin: 0.5em 0; }
+.prose strong { font-weight: 600; }
+.prose code { font-size: 0.875em; padding: 0.15em 0.4em; background: var(--color-bg); border-radius: 4px; font-family: ui-monospace, monospace; }
+.prose pre { background: var(--color-bg); padding: 0.75em 1em; border-radius: var(--radius-sm); overflow-x: auto; margin: 0.75em 0; }
+.prose pre code { padding: 0; background: none; }
+.prose ol { list-style: decimal; padding-left: 1.5em; margin: 0.5em 0; }
+.prose ul { list-style: disc; padding-left: 1.5em; margin: 0.5em 0; }
+.prose li { margin: 0.25em 0; }
+.prose h1, .prose h2, .prose h3 { font-weight: 600; margin: 0.75em 0 0.25em; }
+.prose a { color: var(--color-accent); text-decoration: underline; }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
+import Markdown from 'react-markdown';
 import type { Memory } from '../types';
 import { api } from '../api/client';
 import { ScopeBadge, TypeBadge } from '../components/Badge';
@@ -89,7 +90,9 @@ export function MemoryDetail() {
             </div>
           </div>
         ) : (
-          <p className="text-sm text-text leading-relaxed whitespace-pre-wrap">{memory.content}</p>
+          <div className="text-sm text-text leading-relaxed prose prose-sm max-w-none">
+            <Markdown>{memory.content}</Markdown>
+          </div>
         )}
 
         {memory.tags && memory.tags.length > 0 && (

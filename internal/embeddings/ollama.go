@@ -10,14 +10,14 @@ import (
 
 const defaultModel = "nomic-embed-text"
 
-type Client struct {
+type OllamaClient struct {
 	baseURL    string
 	model      string
 	httpClient *http.Client
 }
 
-func NewClient(baseURL string) *Client {
-	return &Client{
+func NewOllamaClient(baseURL string) *OllamaClient {
+	return &OllamaClient{
 		baseURL:    baseURL,
 		model:      defaultModel,
 		httpClient: &http.Client{},
@@ -34,7 +34,7 @@ type embedResponse struct {
 	Embeddings [][]float32 `json:"embeddings"`
 }
 
-func (c *Client) Embed(ctx context.Context, texts []string) ([][]float32, error) {
+func (c *OllamaClient) Embed(ctx context.Context, texts []string) ([][]float32, error) {
 	if len(texts) == 0 {
 		return nil, nil
 	}
@@ -75,7 +75,7 @@ func (c *Client) Embed(ctx context.Context, texts []string) ([][]float32, error)
 	return result.Embeddings, nil
 }
 
-func (c *Client) EmbedOne(ctx context.Context, text string) ([]float32, error) {
+func (c *OllamaClient) EmbedOne(ctx context.Context, text string) ([]float32, error) {
 	vectors, err := c.Embed(ctx, []string{text})
 	if err != nil {
 		return nil, err

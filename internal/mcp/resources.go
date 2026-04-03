@@ -7,7 +7,8 @@ import (
 
 	mcpsdk "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/scott/claude-memory/internal/memory"
+	"github.com/scott-walker/mememory/internal/bootstrap"
+	"github.com/scott-walker/mememory/internal/memory"
 )
 
 func RegisterResources(srv *server.MCPServer, svc *memory.Service) {
@@ -43,7 +44,7 @@ func bootstrapHandler(svc *memory.Service) server.ResourceHandlerFunc {
 			return nil, fmt.Errorf("bootstrap: %w", err)
 		}
 
-		text := formatBootstrap("", memories)
+		text := bootstrap.Format("", memories)
 
 		return []mcpsdk.ResourceContents{
 			mcpsdk.TextResourceContents{
@@ -83,7 +84,7 @@ func projectBootstrapHandler(svc *memory.Service) server.ResourceTemplateHandler
 		}
 
 		all := append(global, projectMems...)
-		text := formatBootstrap(project, all)
+		text := bootstrap.Format(project, all)
 
 		return []mcpsdk.ResourceContents{
 			mcpsdk.TextResourceContents{
@@ -104,51 +105,3 @@ func extractProject(uri string) string {
 	return ""
 }
 
-func formatBootstrap(project string, memories []memory.Memory) string {
-	if len(memories) == 0 {
-		return "No memories stored yet. Use the 'remember' tool to start building context."
-	}
-
-	var b strings.Builder
-
-	b.WriteString("# Session Bootstrap\n\n")
-	if project != "" {
-		b.WriteString(fmt.Sprintf("Project: %s\n\n", project))
-	}
-
-	// Group by type, prioritized: rule > feedback > fact > decision > context
-	groups := map[memory.MemoryType][]memory.Memory{}
-	for _, m := range memories {
-		groups[m.Type] = append(groups[m.Type], m)
-	}
-
-	typeOrder := []struct {
-		typ   memory.MemoryType
-		label string
-	}{
-		{memory.TypeRule, "Rules"},
-		{memory.TypeFeedback, "Feedback"},
-		{memory.TypeFact, "Facts"},
-		{memory.TypeDecision, "Decisions"},
-		{memory.TypeContext, "Context"},
-	}
-
-	for _, to := range typeOrder {
-		mems := groups[to.typ]
-		if len(mems) == 0 {
-			continue
-		}
-
-		b.WriteString(fmt.Sprintf("## %s\n\n", to.label))
-		for _, m := range mems {
-			scope := string(m.Scope)
-			if m.Project != "" {
-				scope += "/" + m.Project
-			}
-			b.WriteString(fmt.Sprintf("- [%s] %s\n", scope, m.Content))
-		}
-		b.WriteString("\n")
-	}
-
-	return b.String()
-}

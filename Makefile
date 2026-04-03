@@ -1,9 +1,10 @@
-.PHONY: infra-up infra-down setup build run dev clean admin admin-dev admin-build admin-start
+.PHONY: infra-up infra-down setup build run dev clean admin admin-dev admin-build admin-start cli
 
 BINARY := bin/memory-server
 ADMIN_BINARY := bin/memory-admin
-COMPOSE := docker compose -f docker/docker-compose.yml -p claude-memory
-ENV := QDRANT_HOST=localhost QDRANT_PORT=6334 OLLAMA_URL=http://localhost:11434
+CLI_BINARY := bin/mememory
+COMPOSE := docker compose -f docker/docker-compose.yml -p mememory
+ENV := DATABASE_URL=postgres://memory:memory@localhost:5432/memory?sslmode=disable OLLAMA_URL=http://localhost:11434
 
 infra-up:
 	$(COMPOSE) up -d
@@ -17,6 +18,9 @@ setup: infra-up
 build:
 	go build -o $(BINARY) ./cmd/memory-server
 
+cli:
+	CGO_ENABLED=0 go build -ldflags="-s -w" -o $(CLI_BINARY) ./cmd/mememory
+
 run: build
 	$(ENV) ./$(BINARY)
 
@@ -24,7 +28,7 @@ dev:
 	$(ENV) go run ./cmd/memory-server
 
 clean:
-	rm -f $(BINARY) $(ADMIN_BINARY)
+	rm -f $(BINARY) $(ADMIN_BINARY) $(CLI_BINARY)
 	$(COMPOSE) down -v
 
 # Admin UI

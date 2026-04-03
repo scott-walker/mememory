@@ -1,56 +1,51 @@
-# mememory
+# MEMEMORY
 
-MCP server for persistent semantic memory in Claude Code. Stores memories as vectors in Qdrant, uses Ollama for local embeddings. No data leaves your machine.
+Persistent semantic memory for AI agents. MCP server that stores, searches, and delivers knowledge across sessions. All data stays local.
 
-## Architecture
+## What it does
 
-```
-Claude Code ──stdio──▶ memory-server (Go, MCP)
-                            │
-                    ┌───────┴───────┐
-                    ▼               ▼
-               Qdrant          Ollama
-            (vector DB)    (nomic-embed-text)
-```
+- **Stores** memories with scope, type, weight, tags, and TTL
+- **Searches** by semantic similarity with hierarchical scope inheritance
+- **Delivers** accumulated rules and knowledge to agents at session start
+- **Detects** contradictions when new memories conflict with existing ones
+- **Evolves** beliefs through supersede/weight mechanisms without losing history
 
-Three scope levels with hierarchical inheritance:
-- **global** — visible everywhere
-- **project** — visible within a specific project
-- **persona** — visible to a specific agent persona within a project
-
-`recall(persona=X, project=Y)` searches global + project:Y + persona:X.
-
-## Setup
-
-### 1. Start the stack
+## Quick Start
 
 ```bash
-git clone git@github.com:scott-walker/mememory.git
+git clone https://github.com/scott-walker/mememory.git
 cd mememory
-cp .env.example .env    # optionally edit MEMORY_DATA_DIR, ports
+cp .env.example .env
 docker compose -f docker/docker-compose.yml up -d
 ```
 
-First start pulls the embedding model (~274 MB), subsequent starts are instant.
-
-Data is stored in `$MEMORY_DATA_DIR` (default `~/.claude-memory/`).
-
-### 2. Connect to Claude Code
-
-Add to your Claude Code config (`~/.claude/.claude.json` → `mcpServers`):
+Add to Claude Code config (`~/.claude/.claude.json` -> `mcpServers`):
 
 ```json
 {
   "memory": {
     "type": "stdio",
     "command": "docker",
-    "args": ["exec", "-i", "claude-memory-admin", "memory-server"],
+    "args": ["exec", "-i", "mememory-admin", "memory-server"],
     "env": {}
   }
 }
 ```
 
-Or copy `.mcp.json.example` into your project as `.mcp.json` for per-project setup.
+Admin UI at `http://localhost:4200`.
+
+## Stack
+
+```
+Agent ──stdio──> memory-server (Go)
+                      │
+              ┌───────┴───────┐
+              ▼               ▼
+         PostgreSQL       Ollama
+       (pgvector)    (nomic-embed-text)
+```
+
+One `docker compose up` — no Go, Node.js, or other toolchains needed.
 
 ## MCP Tools
 
@@ -58,63 +53,29 @@ Or copy `.mcp.json.example` into your project as `.mcp.json` for per-project set
 |------|-------------|
 | `remember` | Store a memory with scope, type, tags, optional TTL |
 | `recall` | Semantic search with hierarchical scope inheritance |
-| `forget` | Delete a memory by ID |
-| `update` | Update content and re-embed |
-| `list` | List memories with filters (scope, project, persona, type) |
-| `stats` | Count breakdown by scope, project, persona, type |
-| `help` | Show usage instructions |
+| `forget` | Delete by ID |
+| `update` | Update content, re-embed |
+| `list` | List with filters |
+| `stats` | Count breakdown |
 
-### Parameters
+## Key Concepts
 
-**remember:**
-- `content` (required) — text to store
-- `scope` — `global` | `project` | `persona` (default: `global`)
-- `project` — project name (required for project/persona scope)
-- `persona` — agent persona name (required for persona scope)
-- `type` — `fact` | `rule` | `decision` | `feedback` | `context` (default: `fact`)
-- `tags` — comma-separated tags
-- `ttl` — auto-expire duration, e.g. `24h`, `7d`
-- `weight` — priority 0.1–1.0 (default: 1.0)
-- `supersedes` — ID of memory this one replaces
+**Scopes** — global (everywhere), project (one project), persona (one agent role within a project). Recall searches hierarchically: persona sees global + project + own.
 
-**recall:**
-- `query` (required) — natural language search query
-- `scope` — filter by scope (omit for hierarchical search)
-- `project` — filter by project
-- `persona` — filter by persona
-- `limit` — max results (default: 5)
+**Types** — rule, feedback, fact, decision, context. Rules and feedback load automatically at session start.
 
-## Admin UI
+**Scoring** — `similarity x scope_weight x memory_weight x temporal_decay`. Recent, specific, high-weight memories rank higher.
 
-Web interface at `http://localhost:4200` for browsing, searching, and managing memories.
+**Contradiction detection** — warns when a new memory is >75% similar to existing ones. Does not block storage.
 
-## Configuration
+**Session bootstrap** — all global rules and feedback are sent to the agent as MCP instructions at connection time. No config needed per project.
 
-Environment variables (set in `.env`):
+## Documentation
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MEMORY_DATA_DIR` | `~/.claude-memory` | Persistent storage directory |
-| `QDRANT_PORT_REST` | `6333` | Qdrant REST API port |
-| `QDRANT_PORT_GRPC` | `6334` | Qdrant gRPC port |
-| `OLLAMA_PORT` | `11434` | Ollama API port |
-| `ADMIN_PORT` | `4200` | Admin UI port |
-
-## Development
-
-```bash
-make infra-up     # start Qdrant + Ollama containers
-make dev          # run MCP server locally (go run)
-make build        # build binary → bin/memory-server
-make admin-dev    # run admin UI in dev mode (hot reload)
-```
-
-## Stack
-
-- Go — MCP server + admin API
-- Qdrant — vector database
-- Ollama — local embeddings (nomic-embed-text, 768d)
-- React + TypeScript — admin UI
+- [Architecture](docs/architecture.md) — system design, data flow, infrastructure
+- [Memory Model](docs/memory-model.md) — scopes, types, scoring algorithm, belief evolution
+- [MCP Tools Reference](docs/mcp-tools.md) — all tools, parameters, API endpoints
+- [Setup Guide](docs/setup.md) — installation, configuration, development
 
 ## License
 

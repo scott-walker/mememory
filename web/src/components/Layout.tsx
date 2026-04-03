@@ -13,7 +13,7 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen">
       <aside className="w-56 bg-surface border-r border-border flex flex-col py-6 px-4 shrink-0">
         <h1 className="text-lg font-semibold text-text mb-8 px-2">
-          Memory Admin
+          MEMEMORY
         </h1>
         <nav className="flex flex-col gap-1">
           {NAV_ITEMS.map((item) => (

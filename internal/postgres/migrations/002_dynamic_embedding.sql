@@ -1,0 +1,10 @@
+-- This migration is intentionally empty.
+-- Embedding column dimension is now managed dynamically at startup
+-- based on the configured embedding provider's vector size.
+-- See postgres.EnsureEmbeddingDimension().
+--
+-- For existing installations: the embedding column already exists with vector(768)
+-- from migration 001. EnsureEmbeddingDimension will validate it matches.
+--
+-- For new installations: migration 001 creates vector(768), which will be
+-- recreated with the correct dimension if the embedder produces different vectors.

@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/scott/claude-memory/internal/memory"
+	"github.com/scott-walker/mememory/internal/memory"
 )
 
 type Handler struct {

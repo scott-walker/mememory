@@ -8,7 +8,7 @@ import (
 
 	mcpsdk "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/scott/claude-memory/internal/memory"
+	"github.com/scott-walker/mememory/internal/memory"
 )
 
 func RegisterTools(srv *server.MCPServer, svc *memory.Service) {
@@ -302,7 +302,7 @@ func registerHelp(srv *server.MCPServer) {
 	})
 }
 
-const helpFull = `# claude-memory — Persistent Semantic Memory for AI Agents
+const helpFull = `# mememory — Persistent Semantic Memory for AI Agents
 
 ## What is this?
 

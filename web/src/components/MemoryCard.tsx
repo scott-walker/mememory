@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import Markdown from 'react-markdown';
 import type { Memory } from '../types';
 import { ScopeBadge, TypeBadge } from './Badge';
 
@@ -50,9 +51,9 @@ export function MemoryCard({ memory, score, onDelete }: MemoryCardProps) {
       </div>
 
       <Link to={`/memories/${memory.id}`} className="block">
-        <p className="text-sm text-text leading-relaxed line-clamp-3">
-          {memory.content}
-        </p>
+        <div className="text-sm text-text leading-relaxed line-clamp-3 prose prose-sm max-w-none">
+          <Markdown>{memory.content}</Markdown>
+        </div>
       </Link>
 
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">

@@ -6,7 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
-	"github.com/scott/claude-memory/internal/memory"
+	"github.com/scott-walker/mememory/internal/memory"
 )
 
 func NewRouter(svc *memory.Service) http.Handler {

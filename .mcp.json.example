@@ -3,7 +3,7 @@
     "memory": {
       "type": "stdio",
       "command": "docker",
-      "args": ["exec", "-i", "claude-memory-admin", "memory-server"],
+      "args": ["exec", "-i", "mememory-admin", "memory-server"],
       "env": {}
     }
   }
