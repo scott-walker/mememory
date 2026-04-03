@@ -652,11 +652,11 @@ func jsonResultWithWarning(result *memory.RememberResult) (*mcpsdk.CallToolResul
 	b.WriteString("Ask the user to clarify before proceeding.\n\n")
 
 	b.WriteString("New memory:\n")
-	b.WriteString(fmt.Sprintf("  [%s] %s\n\n", result.Memory.ID[:8], result.Memory.Content))
+	fmt.Fprintf(&b, "  [%s] %s\n\n", result.Memory.ID[:8], result.Memory.Content)
 
 	b.WriteString("Potentially conflicting memories:\n")
 	for _, c := range result.Contradictions {
-		b.WriteString(fmt.Sprintf("  [%s] (similarity: %.0f%%) %s\n", c.Memory.ID[:8], c.Similarity*100, c.Memory.Content))
+		fmt.Fprintf(&b, "  [%s] (similarity: %.0f%%) %s\n", c.Memory.ID[:8], c.Similarity*100, c.Memory.Content)
 	}
 
 	b.WriteString("\nOptions:\n")
