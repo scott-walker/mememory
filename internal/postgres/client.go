@@ -181,7 +181,7 @@ func (c *Client) List(ctx context.Context, filter Filter, limit int) ([]t.Memory
 	if err != nil {
 		return nil, fmt.Errorf("list: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var memories []t.Memory
 	for rows.Next() {
@@ -223,12 +223,12 @@ func (c *Client) Stats(ctx context.Context) (*t.StatsResult, error) {
 		var k string
 		var v uint64
 		if err := rows.Scan(&k, &v); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, err
 		}
 		result.ByScope[k] = v
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	// By project
 	rows, err = c.db.QueryContext(ctx, "SELECT project, COUNT(*) FROM memories WHERE project IS NOT NULL GROUP BY project")
@@ -239,12 +239,12 @@ func (c *Client) Stats(ctx context.Context) (*t.StatsResult, error) {
 		var k string
 		var v uint64
 		if err := rows.Scan(&k, &v); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, err
 		}
 		result.ByProject[k] = v
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	// By type
 	rows, err = c.db.QueryContext(ctx, "SELECT type, COUNT(*) FROM memories GROUP BY type")
@@ -255,12 +255,12 @@ func (c *Client) Stats(ctx context.Context) (*t.StatsResult, error) {
 		var k string
 		var v uint64
 		if err := rows.Scan(&k, &v); err != nil {
-			rows.Close()
+			_ = rows.Close()
 			return nil, err
 		}
 		result.ByType[k] = v
 	}
-	rows.Close()
+	_ = rows.Close()
 
 	return result, nil
 }
@@ -310,7 +310,6 @@ func (f Filter) toWhere(argOffset int) (string, []interface{}) {
 	if f.Type != "" {
 		conds = append(conds, fmt.Sprintf("type = $%d", idx))
 		args = append(args, f.Type)
-		idx++
 	}
 
 	if len(conds) == 0 {

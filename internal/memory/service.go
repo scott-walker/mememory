@@ -13,11 +13,11 @@ import (
 )
 
 const (
-	contradictionThreshold float32 = 0.75
-	decayLambda                    = 0.005
-	scopeWeightPersona             = 1.0
-	scopeWeightProject             = 0.8
-	scopeWeightGlobal              = 0.6
+	contradictionThreshold float32  = 0.75
+	decayLambda            float64  = 0.005
+	scopeWeightPersona     float64  = 1.0
+	scopeWeightProject     float64  = 0.8
+	scopeWeightGlobal      float64  = 0.6
 )
 
 type Service struct {

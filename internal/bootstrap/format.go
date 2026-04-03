@@ -36,7 +36,7 @@ func Format(project string, memories []t.Memory) string {
 	b.WriteString("# Memory Bootstrap\n\n")
 	b.WriteString("The following memories were loaded from persistent storage. Apply rules and feedback to your behavior.\n\n")
 	if project != "" {
-		b.WriteString(fmt.Sprintf("Project: %s\n\n", project))
+		fmt.Fprintf(&b, "Project: %s\n\n", project)
 	}
 
 	for _, to := range typeOrder {
@@ -45,12 +45,12 @@ func Format(project string, memories []t.Memory) string {
 			continue
 		}
 
-		b.WriteString(fmt.Sprintf("## %s\n\n", to.label))
+		fmt.Fprintf(&b, "## %s\n\n", to.label)
 		for _, m := range mems {
 			if project != "" {
-				b.WriteString(fmt.Sprintf("- [%s] %s\n", scopeLabel(m), m.Content))
+				fmt.Fprintf(&b, "- [%s] %s\n", scopeLabel(m), m.Content)
 			} else {
-				b.WriteString(fmt.Sprintf("- %s\n", m.Content))
+				fmt.Fprintf(&b, "- %s\n", m.Content)
 			}
 		}
 		b.WriteString("\n")

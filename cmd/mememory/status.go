@@ -22,7 +22,7 @@ func runStatus() error {
 		fmt.Fprintf(os.Stderr, "Fix: docker compose -f docker/docker-compose.yml -p mememory up -d\n")
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var stats t.StatsResult
 	if err := json.NewDecoder(resp.Body).Decode(&stats); err != nil {
