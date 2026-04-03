@@ -76,16 +76,16 @@ release:
     owner: scott-walker
     name: mememory
 
-brews:
-  - ids:
-      - mememory-archives
-    repository:
-      owner: scott-walker
-      name: homebrew-tap
-    homepage: https://github.com/scott-walker/mememory
-    description: Persistent semantic memory for AI agents
-    license: MIT
-    install: |
-      bin.install "mememory"
-    test: |
-      system "#{bin}/mememory", "version"
+# brews:
+#   - ids:
+#       - mememory-archives
+#     repository:
+#       owner: scott-walker
+#       name: homebrew-tap
+#     homepage: https://github.com/scott-walker/mememory
+#     description: Persistent semantic memory for AI agents
+#     license: MIT
+#     install: |
+#       bin.install "mememory"
+#     test: |
+#       system "#{bin}/mememory", "version"
