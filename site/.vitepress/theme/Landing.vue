@@ -29,8 +29,8 @@
 
       <div class="links">
         <a href="https://github.com/scott-walker/mememory">GitHub</a>
-        <a href="/guide/getting-started">Get Started</a>
-        <a href="/reference/mcp-tools">API Reference</a>
+        <a :href="withBase('/guide/getting-started')">Get Started</a>
+        <a :href="withBase('/reference/mcp-tools')">API Reference</a>
       </div>
     </div>
   </div>
@@ -38,6 +38,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { withBase } from 'vitepress'
 const copied = ref(false)
 function copy() {
   navigator.clipboard.writeText('go install github.com/scott-walker/mememory@latest')
