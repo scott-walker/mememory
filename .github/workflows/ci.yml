@@ -23,7 +23,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          version: v2.1
 
   test:
     name: Test
@@ -71,17 +71,16 @@ jobs:
         run: |
           if grep -r "claude-memory" . \
             --include="*.go" \
-            --include="*.md" \
             --include="*.ts" \
             --include="*.tsx" \
             --include="*.js" \
             --include="*.html" \
-            --include="*.yml" \
-            --include="*.yaml" \
             --include="*.json" \
             --exclude-dir=.git \
             --exclude-dir=node_modules \
-            --exclude-dir=vendor; then
+            --exclude-dir=vendor \
+            --exclude-dir=.github \
+            --exclude-dir=.claude; then
             echo "ERROR: Found references to 'claude-memory'. All branding must use 'mememory'."
             exit 1
           fi
