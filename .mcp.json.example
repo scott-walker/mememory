@@ -1,10 +1,9 @@
 {
   "mcpServers": {
-    "memory": {
+    "mememory": {
       "type": "stdio",
       "command": "docker",
-      "args": ["exec", "-i", "mememory-admin", "mememory-server"],
-      "env": {}
+      "args": ["exec", "-i", "mememory", "server"]
     }
   }
 }

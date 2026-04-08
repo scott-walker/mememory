@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.3.0] - 2026-04-08
+
+### Added
+- **Self-contained CLI install.** `mememory setup` now works from a standalone binary — no git clone or source checkout required. The production `docker-compose.yml` is embedded in the binary via `go:embed` and extracted to `$DATA_DIR/.infra/` on first run.
+- **Automatic Postgres port detection.** If port 5432 is already in use, `mememory setup` falls back to 5434 automatically. Override with `POSTGRES_PORT` env var.
+- Pre-creates `postgres/` and `ollama/` data subdirectories before `docker compose up` to avoid bind-mount failures on Docker Desktop.
+
+### Changed
+- **Docker container renamed:** `mememory-admin` → `mememory`. MCP config args change from `["exec", "-i", "mememory-admin", "mememory-server"]` to `["exec", "-i", "mememory", "server"]`.
+- **Binaries inside container renamed:** `mememory-server` → `server`, `mememory-admin` → `admin`. Go source packages (`cmd/mememory-server/`, `cmd/mememory-admin/`) unchanged.
+- Production compose uses published Docker images (`ghcr.io/scott-walker/mememory`, `ollama/ollama:latest`) instead of local `build:` directives.
+- Ollama container switched from custom Dockerfile (with baked-in model pull) to vanilla `ollama/ollama:latest`. Model is pulled by CLI after container health check.
+- `mememory uninstall` now resolves compose file from `$DATA_DIR/.infra/` instead of searching the filesystem.
+
+### Removed
+- `docker/ollama.Dockerfile` and `docker/ollama-entrypoint.sh` — replaced by vanilla Ollama image + CLI-driven model pull.
+- `scripts/setup.sh` — legacy Qdrant-era setup script, replaced by Go-native setup logic.
+
+### Breaking
+- **MCP client config must be updated.** Container name and binary name changed. See Changed section above.
+- **Existing Docker containers must be recreated.** Run `mememory uninstall && mememory setup` after upgrading the CLI binary.
+
 ## [0.2.1] - 2026-04-08
 
 ### Fixed

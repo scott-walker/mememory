@@ -1,6 +1,6 @@
 # Admin API Reference
 
-The Admin API is a REST API served by `mememory-admin` on port 4200 (configurable via `ADMIN_PORT`). It provides CRUD operations for memories, search, export/import, and statistics.
+The Admin API is a REST API served by the `admin` binary on port 4200 (configurable via `ADMIN_PORT`). It provides CRUD operations for memories, search, export/import, and statistics.
 
 Base URL: `http://localhost:4200`
 

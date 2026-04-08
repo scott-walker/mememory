@@ -2,8 +2,11 @@ bin/
 data/
 *.db
 .env
+/mememory
 /mememory-server
 /mememory-admin
+/server
+/admin
 web/node_modules/
 web/dist/
 site/node_modules/

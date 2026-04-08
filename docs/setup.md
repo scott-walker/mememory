@@ -11,12 +11,11 @@ You can either bring your own Postgres or let `mememory setup` bring up the bund
 ## Quick Start (bundled stack)
 
 ```bash
-git clone https://github.com/scott-walker/mememory.git
-cd mememory
+go install github.com/scott-walker/mememory/cmd/mememory@latest
 mememory setup
 ```
 
-`mememory setup` resolves a data directory, writes a `.env` next to `docker-compose.yml`, and runs `docker compose up -d`. First start pulls the embedding model (~274 MB).
+`mememory setup` extracts the bundled Docker Compose file, resolves a data directory, and runs `docker compose up -d`. No source checkout required. First start pulls the embedding model (~274 MB).
 
 ## Bring your own Postgres
 
@@ -37,7 +36,7 @@ Add to your Claude Code config (`~/.claude/.mcp.json`, inside `mcpServers`):
   "mememory": {
     "type": "stdio",
     "command": "docker",
-    "args": ["exec", "-i", "mememory-admin", "mememory-server"],
+    "args": ["exec", "-i", "mememory", "server"],
     "env": {}
   }
 }
@@ -134,7 +133,7 @@ For working on the server itself:
 ```bash
 make infra-up     # Start PostgreSQL + Ollama
 make dev          # Run MCP server locally (go run)
-make build        # Build binary -> bin/mememory-server
+make build        # Build binary -> bin/server
 make admin-dev    # Admin UI with hot reload
 ```
 

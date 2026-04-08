@@ -6,7 +6,7 @@ import (
 )
 
 // Set by GoReleaser via ldflags; default reflects current release version.
-var Version = "0.2.1"
+var Version = "0.3.0"
 
 const defaultAdminURL = "http://localhost:4200"
 

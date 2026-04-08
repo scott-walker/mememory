@@ -15,7 +15,7 @@ Hierarchical MCP memory server for AI agents. Provides persistent semantic memor
 make infra-up     # Start PostgreSQL + Ollama (Docker)
 make infra-down   # Stop Docker services
 make setup        # Init DB + pull embedding model (run once)
-make build        # Build Go binary → bin/mememory-server
+make build        # Build Go binary → bin/server
 make run          # Build and run
 make dev          # Run with go run (no build)
 make clean        # Remove binary + Docker volumes
@@ -27,8 +27,8 @@ make admin-build  # Build admin binary with embedded web UI
 ## Architecture
 
 ```
-cmd/mememory-server/main.go           # MCP server entry point (stdio transport)
-cmd/mememory-admin/main.go            # Admin API + web UI server (:4200)
+cmd/mememory-server/main.go           # MCP server entry point → `server` binary in container
+cmd/mememory-admin/main.go            # Admin API + web UI server → `admin` binary in container
 cmd/mememory/main.go                # User-facing CLI (setup, bootstrap, status)
 cmd/mememory/bootstrap.go           # CLI bootstrap: fetches type=bootstrap memories via admin API
 internal/bootstrap/format.go        # Shared bootstrap formatter (CLI + MCP resources)

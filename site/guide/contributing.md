@@ -47,17 +47,17 @@ This starts the Go admin server and the React dev server (with hot reload). The 
 ### 5. Build binaries
 
 ```bash
-make build        # Build mememory-server → bin/mememory-server
+make build        # Build MCP server → bin/server
 make cli          # Build mememory CLI → bin/mememory
-make admin-build  # Build admin (Go + React) → bin/mememory-admin
+make admin-build  # Build admin (Go + React) → bin/admin
 ```
 
 ## Project Structure
 
 ```
 cmd/
-├── mememory-server/    # MCP server (stdio transport + bootstrap mode)
-├── mememory-admin/     # Admin API + web UI server
+├── mememory-server/    # MCP server → `server` binary in container
+├── mememory-admin/     # Admin API → `admin` binary in container
 └── mememory/         # Native CLI (bootstrap, status)
 
 internal/
@@ -206,7 +206,7 @@ make infra-down     # Stop Docker services
 make dev            # Run MCP server (dev mode)
 make admin          # Run admin API (dev mode)
 make admin-dev      # Run admin API + React dev server
-make build          # Build mememory-server binary
+make build          # Build MCP server binary
 make cli            # Build mememory CLI binary
 make admin-build    # Build admin binary with embedded web UI
 make clean          # Remove binaries + Docker volumes

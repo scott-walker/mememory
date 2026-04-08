@@ -47,7 +47,7 @@ Changing `DATA_DIR` after initial setup means the new directory starts empty. Mo
 
 ## Server Variables
 
-These variables configure the `mememory-server` (MCP server) and `mememory-admin` (Admin API) processes:
+These variables configure the `server` (MCP server) and `admin` (Admin API) processes inside the container:
 
 | Variable | Default | Description |
 |----------|---------|-------------|

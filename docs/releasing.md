@@ -11,8 +11,8 @@ Complete all phases sequentially. Do not skip phases even if they seem unnecessa
   - `mememory version` prints expected version
   - `mememory bootstrap --url http://localhost:4200` connects to a running instance
   - `mememory status` reports service health correctly
-- [ ] Test mememory-server starts and responds on health endpoint
-- [ ] Test mememory-admin serves web UI and API
+- [ ] Test `server` binary starts and responds on health endpoint
+- [ ] Test `admin` binary serves web UI and API
 - [ ] Run branding check: `grep -r "claude-memory" . --include="*.go" --include="*.md" --include="*.ts" --include="*.html"` — must return zero matches
 - [ ] Review CHANGELOG or prepare release notes draft
 - [ ] Confirm no TODO/FIXME items block the release

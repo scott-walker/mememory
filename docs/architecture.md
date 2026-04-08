@@ -5,7 +5,7 @@
 MEMEMORY is an MCP (Model Context Protocol) server that gives AI agents persistent semantic memory. Agents connect via stdio, store and retrieve memories through vector similarity search, and receive accumulated knowledge at the start of each session.
 
 ```
-Agent (Claude Code) ──stdio──> mememory-server (Go)
+Agent (Claude Code) ──stdio──> server (Go)
                                     │
                             ┌───────┴───────┐
                             ▼               ▼
@@ -80,8 +80,8 @@ Flags:
 
 ```
 cmd/
-  mememory-server/    MCP server entry point (stdio transport)
-  mememory-admin/     Admin API + web UI entry point (HTTP :4200)
+  mememory-server/    MCP server entry point → `server` binary in container
+  mememory-admin/     Admin API + web UI entry point → `admin` binary in container
 internal/
   mcp/              MCP tool and resource definitions
   engine/           Business logic, scoring, type re-exports

@@ -36,7 +36,7 @@ Store, search, and deliver knowledge across sessions. MCP server with PostgreSQL
 # CLI (mememory)
 go install github.com/scott-walker/mememory/cmd/mememory@latest
 
-# MCP server binary (mememory-server) — only needed for BYO Postgres mode;
+# MCP server binary — only needed for BYO Postgres mode;
 # bundled Docker mode runs it inside the container
 go install github.com/scott-walker/mememory/cmd/mememory-server@latest
 ```
@@ -46,12 +46,10 @@ Or grab pre-built binaries from [Releases](https://github.com/scott-walker/memem
 ## Quick Start (bundled Docker stack)
 
 ```bash
-git clone https://github.com/scott-walker/mememory.git
-cd mememory
 mememory setup
 ```
 
-`mememory setup` resolves an OS-standard data directory, writes a `.env`, and brings up the Docker stack (Postgres with pgvector + Ollama + Admin UI).
+`mememory setup` extracts the bundled Docker Compose file, resolves an OS-standard data directory, and brings up the Docker stack (Postgres with pgvector + Ollama + Admin UI). No source checkout required.
 
 ## Quick Start (BYO Postgres)
 
@@ -71,7 +69,7 @@ Add to Claude Code config (`~/.claude/.mcp.json` → `mcpServers`):
   "mememory": {
     "type": "stdio",
     "command": "docker",
-    "args": ["exec", "-i", "mememory-admin", "mememory-server"],
+    "args": ["exec", "-i", "mememory", "server"],
     "env": {}
   }
 }
@@ -82,7 +80,7 @@ Admin UI at `http://localhost:4200`.
 ## Architecture
 
 ```
-Agent ──stdio──▶ mememory-server (Go, MCP)
+Agent ──stdio──▶ server (Go, MCP)
                       │
               ┌───────┴───────┐
               ▼               ▼

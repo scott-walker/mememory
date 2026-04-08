@@ -14,7 +14,15 @@ infra-down:
 	$(COMPOSE) down
 
 setup: infra-up
-	./scripts/setup.sh
+	@echo "Waiting for Ollama to be healthy..."
+	@for i in $$(seq 1 30); do \
+		status=$$(docker inspect --format '{{.State.Health.Status}}' mememory-ollama 2>/dev/null); \
+		[ "$$status" = "healthy" ] && break; \
+		[ $$i -eq 30 ] && echo "ERROR: Ollama not healthy after 60s" && exit 1; \
+		sleep 2; \
+	done
+	docker exec mememory-ollama ollama pull nomic-embed-text
+	@echo "Setup complete."
 
 build:
 	go build -o $(BINARY) ./cmd/mememory-server

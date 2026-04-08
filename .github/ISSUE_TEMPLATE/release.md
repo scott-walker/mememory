@@ -17,8 +17,8 @@ assignees: scott-walker
   - [ ] `mememory version` prints expected version
   - [ ] `mememory bootstrap --url http://localhost:4200` connects
   - [ ] `mememory status` reports health correctly
-- [ ] Test mememory-server starts and responds on health endpoint
-- [ ] Test mememory-admin serves web UI and API
+- [ ] Test `server` binary starts and responds on health endpoint
+- [ ] Test `admin` binary serves web UI and API
 - [ ] Branding check: `grep -r "claude-memory" .` returns zero matches
 - [ ] Review CHANGELOG / prepare release notes draft
 - [ ] Confirm no TODO/FIXME items block the release

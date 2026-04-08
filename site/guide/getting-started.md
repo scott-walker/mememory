@@ -15,12 +15,11 @@ This guide walks you through installing mememory, starting the infrastructure, a
 The Docker stack includes everything: PostgreSQL with pgvector, Ollama for embeddings, the admin API, and the MCP server.
 
 ```bash
-git clone https://github.com/scott-walker/mememory.git
-cd mememory
+go install github.com/scott-walker/mememory/cmd/mememory@latest
 mememory setup
 ```
 
-`mememory setup` resolves a data directory, writes a `.env`, and runs `docker compose up -d`. To stop the stack later use `mememory uninstall` (data preserved).
+`mememory setup` extracts the bundled Docker Compose file, resolves a data directory, and runs `docker compose up -d`. No source checkout required. To stop the stack later use `mememory uninstall` (data preserved).
 
 ### Bring your own Postgres
 
@@ -33,7 +32,7 @@ mememory-server
 
 The server runs `CREATE EXTENSION IF NOT EXISTS vector` at startup. If your DB user lacks `CREATE` privilege, ask your DBA to install pgvector beforehand.
 
-The MCP server runs inside the `mememory-admin` container. Your MCP client connects to it via `docker exec`.
+The MCP server runs inside the `mememory` container. Your MCP client connects to it via `docker exec`.
 
 ### Go Install (native binary)
 
@@ -63,7 +62,7 @@ This starts three containers:
 |-----------|------|---------|
 | `mememory-postgres` | 5432 | PostgreSQL with pgvector extension |
 | `mememory-ollama` | 11434 | Ollama embedding server (nomic-embed-text) |
-| `mememory-admin` | 4200 | Admin API + web UI + MCP server |
+| `mememory` | 4200 | Admin API + web UI + MCP server |
 
 ::: tip
 On first start, Ollama downloads the `nomic-embed-text` model (~275 MB). This happens automatically inside the Docker container.
@@ -102,7 +101,7 @@ Add the MCP server to your config file (`~/.claude/.mcp.json`, or `.mcp.json` in
     "mememory": {
       "type": "stdio",
       "command": "docker",
-      "args": ["exec", "-i", "mememory-admin", "mememory-server"],
+      "args": ["exec", "-i", "mememory", "server"],
       "env": {}
     }
   }

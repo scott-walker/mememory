@@ -10,8 +10,7 @@ import (
 )
 
 // runUninstall stops the Docker stack. With --purge it additionally deletes
-// the data directory after interactive path confirmation. Never destroys
-// Docker volumes; uses plain `docker compose down`.
+// the data directory after interactive path confirmation.
 func runUninstall(args []string) error {
 	purge := false
 	for _, a := range args {
@@ -20,23 +19,20 @@ func runUninstall(args []string) error {
 		}
 	}
 
-	composePath, err := findComposeFile()
-	if err != nil {
-		return err
-	}
-	composeDir := filepath.Dir(composePath)
-
 	dataDir, err := ResolveDataDir()
 	if err != nil {
 		return err
 	}
 
-	// Always stop containers without -v (volumes preserved)
-	stop := exec.Command("docker", "compose", "-f", composePath, "down")
-	stop.Dir = filepath.Dir(composeDir)
+	composeFile := composePath(dataDir)
+	if _, err := os.Stat(composeFile); err != nil {
+		return fmt.Errorf("compose file not found at %s — was mememory set up?", composeFile)
+	}
+
+	stop := exec.Command("docker", "compose", "-f", composeFile, "-p", "mememory", "down")
+	stop.Dir = filepath.Dir(composeFile)
 	stop.Stdout = os.Stdout
 	stop.Stderr = os.Stderr
-	stop.Env = append(os.Environ(), "DATA_DIR="+dataDir)
 	if err := stop.Run(); err != nil {
 		return fmt.Errorf("docker compose down: %w", err)
 	}

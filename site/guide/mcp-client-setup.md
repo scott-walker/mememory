@@ -16,14 +16,14 @@ Add to `~/.claude/.mcp.json` (global) or `.mcp.json` (project-level):
     "mememory": {
       "type": "stdio",
       "command": "docker",
-      "args": ["exec", "-i", "mememory-admin", "mememory-server"],
+      "args": ["exec", "-i", "mememory", "server"],
       "env": {}
     }
   }
 }
 ```
 
-This tells Claude Code to launch the MCP server inside the running Docker container. The `mememory-server` binary handles MCP communication over stdio.
+This tells Claude Code to launch the MCP server inside the running Docker container. The `server` binary handles MCP communication over stdio.
 
 ### Step 2: Add SessionStart hook
 
@@ -62,7 +62,7 @@ For project-level MCP config, create `.mcp.json` in the project root:
     "mememory": {
       "type": "stdio",
       "command": "docker",
-      "args": ["exec", "-i", "mememory-admin", "mememory-server"],
+      "args": ["exec", "-i", "mememory", "server"],
       "env": {}
     }
   }
@@ -82,7 +82,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "mememory": {
       "command": "docker",
-      "args": ["exec", "-i", "mememory-admin", "mememory-server"]
+      "args": ["exec", "-i", "mememory", "server"]
     }
   }
 }
@@ -97,7 +97,7 @@ Edit `%APPDATA%\Claude\claude_desktop_config.json`:
   "mcpServers": {
     "mememory": {
       "command": "docker",
-      "args": ["exec", "-i", "mememory-admin", "mememory-server"]
+      "args": ["exec", "-i", "mememory", "server"]
     }
   }
 }
@@ -112,7 +112,7 @@ Edit `~/.config/Claude/claude_desktop_config.json`:
   "mcpServers": {
     "mememory": {
       "command": "docker",
-      "args": ["exec", "-i", "mememory-admin", "mememory-server"]
+      "args": ["exec", "-i", "mememory", "server"]
     }
   }
 }
@@ -126,7 +126,7 @@ Claude Desktop does not support SessionStart hooks. The MCP server exposes boots
 
 Any MCP-compatible client can connect to mememory. The server uses stdio transport:
 
-**Command:** `docker exec -i mememory-admin mememory-server`
+**Command:** `docker exec -i mememory server`
 
 **Capabilities advertised:**
 - Tools: 7 tools (`remember`, `recall`, `forget`, `update`, `list`, `stats`, `help`)
@@ -162,7 +162,7 @@ Ensure the Docker stack is running:
 docker compose -f docker/docker-compose.yml -p mememory ps
 ```
 
-All three containers (`mememory-postgres`, `mememory-ollama`, `mememory-admin`) should show `Up (healthy)`.
+All three containers (`mememory-postgres`, `mememory-ollama`, `mememory`) should show `Up (healthy)`.
 
 ### MCP tools not appearing
 

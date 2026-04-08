@@ -9,12 +9,12 @@ mememory is a Go monorepo with three binaries, a React admin UI, and a Docker-ba
                 ┌─────────────────────┐          ┌──────────────────────────┐
                 │                     │          │                          │
 User ────────── │   mememory CLI      │──HTTP──> │   Admin API (:4200)      │
-                │   (bootstrap,       │          │   mememory-admin           │
+                │   (bootstrap,       │          │   mememory                 │
                 │    status)          │          │      │                   │
                 │                     │          │      ├── REST endpoints  │
                 └─────────────────────┘          │      └── Web UI (React) │
                                                  │            │             │
-Agent ──stdio── │   mememory-server     │──────────│────────────┤             │
+Agent ──stdio── │   server              │──────────│────────────┤             │
                 │   (inside Docker)   │          │            │             │
                 │                     │          │            ▼             │
                 └─────────────────────┘          │   ┌──────────────┐      │
@@ -32,17 +32,17 @@ Agent ──stdio── │   mememory-server     │─────────
 
 ## Components
 
-### mememory-server
+### server (MCP server)
 
-The MCP server binary. Communicates with agents via stdio (stdin/stdout). Registers 7 MCP tools and 2 MCP resources. Runs inside the `mememory-admin` Docker container.
+The MCP server binary (`server` inside the container, built from `cmd/mememory-server/`). Communicates with agents via stdio (stdin/stdout). Registers 7 MCP tools and 2 MCP resources. Runs inside the `mememory` Docker container.
 
 - Entry point: `cmd/mememory-server/main.go`
 - Runs a background TTL cleanup goroutine (hourly)
 - On startup: requires `DATABASE_URL` (fails fast if missing), connects to PostgreSQL, runs `CREATE EXTENSION IF NOT EXISTS vector`, applies migrations, probes embedding dimension, validates database column
 
-### mememory-admin
+### admin (Admin API)
 
-The Admin API and web UI server. Serves REST endpoints on port 4200 and the React admin UI as static files.
+The Admin API and web UI server (`admin` inside the container, built from `cmd/mememory-admin/`). Serves REST endpoints on port 4200 and the React admin UI as static files.
 
 - Entry point: `cmd/mememory-admin/main.go`
 - REST API: `internal/api/router.go`, `internal/api/handler.go`
@@ -79,16 +79,16 @@ Single-page application for browsing and managing memories. Built with React + T
 
 - Source: `web/`
 - Communicates with Admin API endpoints
-- Served as static files by `mememory-admin`
+- Served as static files by the `admin` binary
 
 ## Directory Structure
 
 ```
 mememory/
 ├── cmd/
-│   ├── mememory-server/       # MCP server binary (stdio + bootstrap mode)
+│   ├── mememory-server/       # MCP server → `server` binary in container
 │   │   └── main.go
-│   ├── mememory-admin/        # Admin API + web UI server
+│   ├── mememory-admin/        # Admin API → `admin` binary in container
 │   │   └── main.go
 │   └── mememory/            # Native CLI (bootstrap, status, version)
 │       ├── main.go
