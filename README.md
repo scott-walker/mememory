@@ -30,6 +30,19 @@ Store, search, and deliver knowledge across sessions. MCP server with PostgreSQL
 - PostgreSQL >= 14 with the [pgvector](https://github.com/pgvector/pgvector) extension
 - (Optional) Docker, if you want the bundled quick-start stack
 
+## Install
+
+```bash
+# CLI (mememory)
+go install github.com/scott-walker/mememory/cmd/mememory@latest
+
+# MCP server binary (mememory-server) — only needed for BYO Postgres mode;
+# bundled Docker mode runs it inside the container
+go install github.com/scott-walker/mememory/cmd/mememory-server@latest
+```
+
+Or grab pre-built binaries from [Releases](https://github.com/scott-walker/mememory/releases/latest).
+
 ## Quick Start (bundled Docker stack)
 
 ```bash
@@ -42,7 +55,7 @@ mememory setup
 
 ## Quick Start (BYO Postgres)
 
-If you already have a PostgreSQL >= 14 server with pgvector, just point `DATABASE_URL` at it. There is no fallback — the server fails fast if `DATABASE_URL` is unset.
+If you already have a PostgreSQL >= 14 server with pgvector, point `DATABASE_URL` at it. There is no fallback — the server fails fast if `DATABASE_URL` is unset.
 
 ```bash
 export DATABASE_URL=postgres://user:pass@your-host:5432/mememory?sslmode=disable

@@ -28,7 +28,7 @@ export DATABASE_URL=postgres://user:pass@your-host:5432/mememory?sslmode=disable
 
 The `pgvector` extension is verified at startup. If missing, the server fails fast with installation instructions.
 
-### 2. Connect your MCP client
+### Connect your MCP client
 
 Add to your Claude Code config (`~/.claude/.mcp.json`, inside `mcpServers`):
 
@@ -45,7 +45,7 @@ Add to your Claude Code config (`~/.claude/.mcp.json`, inside `mcpServers`):
 
 Or create `.mcp.json` in your project root for per-project setup.
 
-### 3. Enable session bootstrap
+### Enable session bootstrap
 
 Add a `SessionStart` hook to your Claude Code settings (`settings.json`) so that stored memories are loaded into every new session automatically:
 
@@ -67,7 +67,7 @@ Add a `SessionStart` hook to your Claude Code settings (`settings.json`) so that
 }
 ```
 
-### 4. Verify
+### Verify
 
 Start a new Claude Code session. The agent should have access to `remember`, `recall`, `forget`, `update`, `list`, `stats`, and `help` tools.
 

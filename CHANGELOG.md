@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.2.1] - 2026-04-08
+
+### Fixed
+- Landing page (`site/.vitepress/theme/Landing.vue`): the `go install` command now points at the actual main package (`/cmd/mememory`), not the module root.
+- README: added an explicit Install section. Previous Quick Start assumed the `mememory` binary was already on the PATH without explaining how to get it.
+- `site/guide/getting-started.md`: removed dead references to a non-existent `scripts/install.sh` and an unpublished Homebrew tap. Replaced with a pointer to GitHub Releases.
+- `site/guide/bootstrap.md`: removed the "legacy `mememory-server --bootstrap`" section. The flag was removed when bootstrap moved into the dedicated `mememory` CLI.
+- `site/guide/architecture.md`: removed stale "supports `--bootstrap` mode" line from `mememory-server` description.
+- `docs/architecture.md`, `docs/memory-model.md`: SessionStart hook example now uses `mememory bootstrap` instead of the dead `docker exec mememory-admin mememory-server --bootstrap` form.
+- `docs/setup.md`: removed broken numbered subheadings inside the BYO Postgres section.
+- Removed `docs/examples-bootstrap-hook.sh` — the entire example shell script was based on the removed `--bootstrap` and `--persona` flags.
+- `docs/releasing.md`, `.github/ISSUE_TEMPLATE/release.md`: removed verification steps for the Homebrew tap, which is currently disabled in `.goreleaser.yml`.
+
 ## [0.2.0] - 2026-04-08
 
 This release rebrands user-visible identifiers to `mememory` everywhere, makes the database connection fully user-configurable, introduces a new `bootstrap` memory type with size-bounded session initialization, and adds OS-aware data persistence with safe install/uninstall flows. **This is a breaking release for existing installations** — see the Breaking section below for migration details.

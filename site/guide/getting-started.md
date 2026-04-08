@@ -45,17 +45,9 @@ go install github.com/scott-walker/mememory/cmd/mememory@latest
 
 This installs the `mememory` binary to your `$GOPATH/bin`. You still need Docker for PostgreSQL and Ollama.
 
-### Homebrew (macOS/Linux)
+### Pre-built binaries
 
-```bash
-brew install scott-walker/tap/mememory
-```
-
-### Curl Script
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/scott-walker/mememory/main/scripts/install.sh | bash
-```
+Download from [GitHub Releases](https://github.com/scott-walker/mememory/releases/latest) — `linux_amd64`, `linux_arm64`, `darwin_amd64`, `darwin_arm64`, and `windows_amd64` are published for every tag.
 
 ## First-Time Setup
 

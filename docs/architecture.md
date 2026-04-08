@@ -62,17 +62,19 @@ Why PostgreSQL instead of a dedicated vector DB: one database handles both vecto
 
 ```
 1. Claude Code starts a new session
-2. SessionStart hook runs: `docker exec mememory-admin mememory-server --bootstrap --project myapp`
-3. mememory-server connects to PostgreSQL, reads global + project-scoped memories with `type=bootstrap`
-4. Formats them as Markdown (with a hard-coded System section followed by Bootstrap > Rules > Feedback > Facts > Decisions > Context)
-5. Prints to stdout — hook injects output into the agent's context
-6. Agent receives essential directives from the first message; everything else is loaded on demand via `recall`
+2. SessionStart hook runs: `mememory bootstrap`
+3. The mememory CLI auto-detects the project from the git working directory
+4. CLI calls the Admin API (http://localhost:4200) and fetches global + project-scoped memories with type=bootstrap
+5. Formats them as Markdown (System section followed by Bootstrap > Rules > Feedback > Facts > Decisions > Context)
+6. Prints to stdout — Claude Code injects the output into the agent's context
+7. Agent receives essential directives from the first message; everything else is loaded on demand via `recall`
 ```
 
-The `--bootstrap` flag is a CLI mode of the same binary. It connects directly to PostgreSQL (no Ollama needed), reads memories with `type=bootstrap`, prints Markdown, and exits. Output is capped at 10KB (`MaxBootstrapBytes`); above that, a warning is printed to stderr because MCP clients may truncate hook output.
+`mememory bootstrap` is a thin native CLI binary that talks to the Admin API over HTTP. It does not connect to PostgreSQL directly. Output is capped at 10KB (`MaxBootstrapBytes`); above that, a warning is printed to stderr because MCP clients may truncate hook output. If the Admin API is unreachable, the command exits silently — the agent starts without bootstrap memories rather than crashing the session.
 
 Flags:
-- `--project <name>` — include project-scoped bootstrap memories (hierarchical: global + project)
+- `--project <name>` — override auto-detected project name
+- `--url <url>` — override Admin API URL (default `http://localhost:4200`)
 
 ## Directory Structure
 

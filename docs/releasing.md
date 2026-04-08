@@ -47,7 +47,6 @@ Complete all phases sequentially. Do not skip phases even if they seem unnecessa
   - [ ] Release notes are accurate
   - [ ] All platform archives are attached (linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64)
   - [ ] Checksum file is present
-- [ ] Verify Homebrew tap updated: `brew install scott-walker/tap/mememory` works
 - [ ] Verify Docker image:
   - `docker pull ghcr.io/scott-walker/mememory:vX.Y.Z`
   - `docker pull ghcr.io/scott-walker/mememory:latest`
@@ -79,7 +78,6 @@ Complete all phases sequentially. Do not skip phases even if they seem unnecessa
 
 ## Post-release Verification
 
-- [ ] Install from Homebrew on a clean machine: `brew install scott-walker/tap/mememory`
 - [ ] Install from GitHub Release binary on Linux
 - [ ] Run `mememory version` — confirms new version string
 - [ ] Pull and run Docker image end-to-end with docker-compose

@@ -9,7 +9,7 @@
       <div class="install">
         <div class="code-block" @click="copy" :title="copied ? 'Copied!' : 'Click to copy'">
           <span class="comment"># install</span><br>
-          <span class="prompt">$ </span>go install github.com/scott-walker/mememory@latest<br>
+          <span class="prompt">$ </span>go install github.com/scott-walker/mememory/cmd/mememory@latest<br>
           <br>
           <span class="comment"># setup — one command, everything works</span><br>
           <span class="prompt">$ </span>mememory setup
@@ -41,7 +41,7 @@ import { ref } from 'vue'
 import { withBase } from 'vitepress'
 const copied = ref(false)
 function copy() {
-  navigator.clipboard.writeText('go install github.com/scott-walker/mememory@latest')
+  navigator.clipboard.writeText('go install github.com/scott-walker/mememory/cmd/mememory@latest')
   copied.value = true
   setTimeout(() => copied.value = false, 2000)
 }

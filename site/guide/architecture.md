@@ -37,9 +37,8 @@ Agent ──stdio── │   mememory-server     │─────────
 The MCP server binary. Communicates with agents via stdio (stdin/stdout). Registers 7 MCP tools and 2 MCP resources. Runs inside the `mememory-admin` Docker container.
 
 - Entry point: `cmd/mememory-server/main.go`
-- Also supports `--bootstrap` mode for CLI-based session initialization
 - Runs a background TTL cleanup goroutine (hourly)
-- On startup: connects to PostgreSQL, runs migrations, probes embedding dimension, validates database column
+- On startup: requires `DATABASE_URL` (fails fast if missing), connects to PostgreSQL, runs `CREATE EXTENSION IF NOT EXISTS vector`, applies migrations, probes embedding dimension, validates database column
 
 ### mememory-admin
 

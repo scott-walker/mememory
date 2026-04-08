@@ -151,7 +151,7 @@ Memories are not immutable. Knowledge changes over time:
 
 ## Session Bootstrap
 
-At the start of every session, a Claude Code `SessionStart` hook runs `mememory bootstrap` (or `mememory-server --bootstrap`). This reads memories with `type=bootstrap` from PostgreSQL, formats them as Markdown, and prints to stdout. The hook injects this output into the agent's context automatically.
+At the start of every session, a Claude Code `SessionStart` hook runs `mememory bootstrap`. This calls the Admin API, reads memories with `type=bootstrap`, formats them as Markdown, and prints to stdout. The hook injects this output into the agent's context automatically.
 
 - Only `bootstrap`-type memories are delivered at session start — other types are loaded on demand via `recall`
 - New bootstrap rules take effect in the next session automatically
@@ -172,7 +172,7 @@ Configure the hook in Claude Code settings (`settings.json`):
         "hooks": [
           {
             "type": "command",
-            "command": "docker exec mememory-admin mememory-server --bootstrap"
+            "command": "mememory bootstrap"
           }
         ]
       }

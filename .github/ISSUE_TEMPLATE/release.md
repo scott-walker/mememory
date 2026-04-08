@@ -47,13 +47,12 @@ assignees: scott-walker
 - [ ] Tag push triggers release workflow
 - [ ] Monitor GitHub Actions:
   - [ ] Test job passes
-  - [ ] GoReleaser job completes (binaries, archives, checksums, Homebrew tap)
+  - [ ] GoReleaser job completes (binaries, archives, checksums)
   - [ ] Docker job pushes to `ghcr.io/scott-walker/mememory`
 - [ ] Verify GitHub Release page:
   - [ ] Release notes accurate
   - [ ] All platform archives attached
   - [ ] Checksum file present
-- [ ] Verify Homebrew: `brew install scott-walker/tap/mememory`
 - [ ] Verify Docker image:
   - [ ] `docker pull ghcr.io/scott-walker/mememory:vX.Y.Z`
   - [ ] `docker pull ghcr.io/scott-walker/mememory:latest`
@@ -85,7 +84,6 @@ assignees: scott-walker
 
 ### Post-release Verification
 
-- [ ] Install from Homebrew on clean machine
 - [ ] Install from GitHub Release binary on Linux
 - [ ] `mememory version` confirms new version
 - [ ] Docker image end-to-end with docker-compose

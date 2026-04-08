@@ -30,27 +30,20 @@ Bootstrap output is capped at **10KB** (`MaxBootstrapBytes` in `internal/bootstr
 
 Behavior when the limit is exceeded:
 
-- **`mememory bootstrap` / `mememory-server --bootstrap`** — prints a warning to stderr and still prints the output to stdout. The MCP client may truncate the bottom of the output.
+- **`mememory bootstrap`** — prints a warning to stderr and still prints the output to stdout. The MCP client may truncate the bottom of the output.
 - **`remember(type="bootstrap", ...)`** — the memory is stored normally, but the response includes a warning message indicating that the combined bootstrap set now exceeds the limit. Remove or shorten some bootstrap memories to get back under 10KB.
 
 Keep the bootstrap set small: a handful of imperatives, not a knowledge base.
 
-## Bootstrap Methods
-
-There are two ways to run bootstrap:
-
-### 1. mememory CLI (recommended)
+## Running Bootstrap
 
 The native `mememory` binary runs on the host machine and calls the Admin API over HTTP:
 
 ```bash
-# Global bootstrap memories only
+# Auto-detect project from git, fall back to global only
 mememory bootstrap
 
-# Global + project-scoped bootstrap memories (auto-detect project from git)
-mememory bootstrap
-
-# Global + specific project
+# Override the project name explicitly
 mememory bootstrap --project myapp
 ```
 
@@ -58,19 +51,7 @@ mememory bootstrap --project myapp
 When `--project` is omitted, the CLI auto-detects the project name from the current git repository's root directory name. If not inside a git repo, it falls back to the current directory name.
 :::
 
-### 2. mememory-server --bootstrap (legacy)
-
-The MCP server binary also supports bootstrap mode. It connects directly to PostgreSQL (no Admin API needed):
-
-```bash
-# Global only
-mememory-server --bootstrap
-
-# Global + project
-mememory-server --bootstrap --project myapp
-```
-
-This mode is useful inside Docker or when the Admin API is not running. However, the `mememory` CLI is preferred because it auto-detects the project and handles API connectivity gracefully (silent exit if unreachable).
+If the Admin API is unreachable, `mememory bootstrap` exits silently — the agent starts without bootstrap memories rather than crashing the session.
 
 ## Hook Configuration
 
