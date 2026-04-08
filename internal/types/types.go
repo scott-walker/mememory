@@ -7,17 +7,17 @@ type Scope string
 const (
 	ScopeGlobal  Scope = "global"
 	ScopeProject Scope = "project"
-	ScopePersona Scope = "persona"
 )
 
 type MemoryType string
 
 const (
-	TypeFact     MemoryType = "fact"
-	TypeRule     MemoryType = "rule"
-	TypeDecision MemoryType = "decision"
-	TypeFeedback MemoryType = "feedback"
-	TypeContext  MemoryType = "context"
+	TypeFact      MemoryType = "fact"
+	TypeRule      MemoryType = "rule"
+	TypeDecision  MemoryType = "decision"
+	TypeFeedback  MemoryType = "feedback"
+	TypeContext   MemoryType = "context"
+	TypeBootstrap MemoryType = "bootstrap"
 )
 
 type Memory struct {
@@ -25,7 +25,6 @@ type Memory struct {
 	Content    string     `json:"content"`
 	Scope      Scope      `json:"scope"`
 	Project    string     `json:"project,omitempty"`
-	Persona    string     `json:"persona,omitempty"`
 	Type       MemoryType `json:"type"`
 	Tags       []string   `json:"tags,omitempty"`
 	Weight     float64    `json:"weight"`
@@ -39,7 +38,6 @@ type RememberInput struct {
 	Content    string     `json:"content"`
 	Scope      Scope      `json:"scope"`
 	Project    string     `json:"project,omitempty"`
-	Persona    string     `json:"persona,omitempty"`
 	Type       MemoryType `json:"type"`
 	Tags       []string   `json:"tags,omitempty"`
 	Weight     float64    `json:"weight,omitempty"`
@@ -63,7 +61,6 @@ type RecallInput struct {
 	Query   string `json:"query"`
 	Scope   string `json:"scope,omitempty"`
 	Project string `json:"project,omitempty"`
-	Persona string `json:"persona,omitempty"`
 	Limit   int    `json:"limit,omitempty"`
 }
 
@@ -75,7 +72,6 @@ type RecallResult struct {
 type ListInput struct {
 	Scope   string `json:"scope,omitempty"`
 	Project string `json:"project,omitempty"`
-	Persona string `json:"persona,omitempty"`
 	Type    string `json:"type,omitempty"`
 	Limit   int    `json:"limit,omitempty"`
 }
@@ -84,6 +80,5 @@ type StatsResult struct {
 	Total     uint64            `json:"total"`
 	ByScope   map[string]uint64 `json:"by_scope"`
 	ByProject map[string]uint64 `json:"by_project"`
-	ByPersona map[string]uint64 `json:"by_persona"`
 	ByType    map[string]uint64 `json:"by_type"`
 }

@@ -4,21 +4,34 @@ This guide walks you through installing mememory, starting the infrastructure, a
 
 ## Prerequisites
 
-- **Docker** and **Docker Compose** (for PostgreSQL + Ollama)
+- **PostgreSQL >= 14** with the [pgvector](https://github.com/pgvector/pgvector) extension (BYO or bundled)
+- **Docker** and **Docker Compose** (only if you want the bundled quick-start stack)
 - A supported MCP client (Claude Code, Claude Desktop, or any MCP-compatible agent)
 
 ## Installation
 
-### Docker Only (recommended)
+### Bundled Docker stack (recommended quick-start)
 
-No local installation needed. The Docker stack includes everything: PostgreSQL with pgvector, Ollama for embeddings, the admin API, and the MCP server.
+The Docker stack includes everything: PostgreSQL with pgvector, Ollama for embeddings, the admin API, and the MCP server.
 
 ```bash
 git clone https://github.com/scott-walker/mememory.git
 cd mememory
-cp .env.example .env
-docker compose -f docker/docker-compose.yml -p mememory up -d
+mememory setup
 ```
+
+`mememory setup` resolves a data directory, writes a `.env`, and runs `docker compose up -d`. To stop the stack later use `mememory uninstall` (data preserved).
+
+### Bring your own Postgres
+
+`DATABASE_URL` is **required** — there is no fallback. Set it to a PostgreSQL >= 14 instance with pgvector available:
+
+```bash
+export DATABASE_URL=postgres://user:pass@your-host:5432/mememory?sslmode=disable
+mememory-server
+```
+
+The server runs `CREATE EXTENSION IF NOT EXISTS vector` at startup. If your DB user lacks `CREATE` privilege, ask your DBA to install pgvector beforehand.
 
 The MCP server runs inside the `mememory-admin` container. Your MCP client connects to it via `docker exec`.
 
@@ -49,7 +62,7 @@ curl -fsSL https://raw.githubusercontent.com/scott-walker/mememory/main/scripts/
 ### 1. Start infrastructure
 
 ```bash
-docker compose -f docker/docker-compose.yml -p mememory up -d
+mememory setup
 ```
 
 This starts three containers:
@@ -89,15 +102,15 @@ Navigate to [http://localhost:4200](http://localhost:4200) in your browser. The 
 
 ### Claude Code
 
-Add the MCP server to your config file (`~/.claude/.claude.json`):
+Add the MCP server to your config file (`~/.claude/.mcp.json`, or `.mcp.json` in your project root):
 
 ```json
 {
   "mcpServers": {
-    "memory": {
+    "mememory": {
       "type": "stdio",
       "command": "docker",
-      "args": ["exec", "-i", "mememory-admin", "memory-server"],
+      "args": ["exec", "-i", "mememory-admin", "mememory-server"],
       "env": {}
     }
   }
@@ -144,6 +157,6 @@ Check the Admin UI at [http://localhost:4200](http://localhost:4200) to see the 
 ## What's Next
 
 - [Memory Model](/guide/memory-model) — understand memory types, fields, and when to use each
-- [Scopes & Hierarchy](/guide/scopes) — learn about global, project, and persona scopes
+- [Scopes & Hierarchy](/guide/scopes) — learn about global and project scopes
 - [Session Bootstrap](/guide/bootstrap) — configure automatic memory loading at session start
 - [MCP Client Setup](/guide/mcp-client-setup) — detailed setup for all supported clients

@@ -8,22 +8,22 @@ Claude Code is the recommended client. It supports both MCP tools and SessionSta
 
 ### Step 1: Add MCP server
 
-Add to `~/.claude/.claude.json` (global) or `.claude.json` (project-level):
+Add to `~/.claude/.mcp.json` (global) or `.mcp.json` (project-level):
 
 ```json
 {
   "mcpServers": {
-    "memory": {
+    "mememory": {
       "type": "stdio",
       "command": "docker",
-      "args": ["exec", "-i", "mememory-admin", "memory-server"],
+      "args": ["exec", "-i", "mememory-admin", "mememory-server"],
       "env": {}
     }
   }
 }
 ```
 
-This tells Claude Code to launch the MCP server inside the running Docker container. The `memory-server` binary handles MCP communication over stdio.
+This tells Claude Code to launch the MCP server inside the running Docker container. The `mememory-server` binary handles MCP communication over stdio.
 
 ### Step 2: Add SessionStart hook
 
@@ -54,32 +54,17 @@ Start a new Claude Code session and check:
 
 ### Project-specific config
 
-For project-level MCP config, create `.claude.json` in the project root:
+For project-level MCP config, create `.mcp.json` in the project root:
 
 ```json
 {
   "mcpServers": {
-    "memory": {
+    "mememory": {
       "type": "stdio",
       "command": "docker",
-      "args": ["exec", "-i", "mememory-admin", "memory-server"],
+      "args": ["exec", "-i", "mememory-admin", "mememory-server"],
       "env": {}
     }
-  }
-}
-```
-
-For project-specific bootstrap with a persona:
-
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "type": "command",
-        "command": "mememory bootstrap --persona architect"
-      }
-    ]
   }
 }
 ```
@@ -95,9 +80,9 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "memory": {
+    "mememory": {
       "command": "docker",
-      "args": ["exec", "-i", "mememory-admin", "memory-server"]
+      "args": ["exec", "-i", "mememory-admin", "mememory-server"]
     }
   }
 }
@@ -110,9 +95,9 @@ Edit `%APPDATA%\Claude\claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "memory": {
+    "mememory": {
       "command": "docker",
-      "args": ["exec", "-i", "mememory-admin", "memory-server"]
+      "args": ["exec", "-i", "mememory-admin", "mememory-server"]
     }
   }
 }
@@ -125,27 +110,27 @@ Edit `~/.config/Claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "memory": {
+    "mememory": {
       "command": "docker",
-      "args": ["exec", "-i", "mememory-admin", "memory-server"]
+      "args": ["exec", "-i", "mememory-admin", "mememory-server"]
     }
   }
 }
 ```
 
 ::: tip
-Claude Desktop does not support SessionStart hooks. The MCP server exposes bootstrap data as MCP resources (`memory://bootstrap` and `memory://bootstrap/{project}`) which some clients can read at connection time.
+Claude Desktop does not support SessionStart hooks. The MCP server exposes bootstrap data as MCP resources (`mememory://bootstrap` and `mememory://bootstrap/{project}`) which some clients can read at connection time.
 :::
 
 ## Generic MCP Clients
 
 Any MCP-compatible client can connect to mememory. The server uses stdio transport:
 
-**Command:** `docker exec -i mememory-admin memory-server`
+**Command:** `docker exec -i mememory-admin mememory-server`
 
 **Capabilities advertised:**
 - Tools: 7 tools (`remember`, `recall`, `forget`, `update`, `list`, `stats`, `help`)
-- Resources: `memory://bootstrap`, `memory://bootstrap/{project}`
+- Resources: `mememory://bootstrap`, `mememory://bootstrap/{project}`
 
 ### Native binary (alternative)
 
@@ -154,10 +139,10 @@ If you built the binary locally instead of using Docker:
 ```json
 {
   "mcpServers": {
-    "memory": {
-      "command": "/path/to/memory-server",
+    "mememory": {
+      "command": "/path/to/mememory-server",
       "env": {
-        "DATABASE_URL": "postgres://memory:memory@localhost:5432/memory?sslmode=disable",
+        "DATABASE_URL": "postgres://mememory:memory@localhost:5432/mememory?sslmode=disable",
         "OLLAMA_URL": "http://localhost:11434"
       }
     }

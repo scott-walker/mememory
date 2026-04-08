@@ -18,7 +18,6 @@ import (
 
 type bootstrapArgs struct {
 	project string
-	persona string
 	url     string
 }
 
@@ -29,9 +28,6 @@ func parseBootstrapArgs(args []string) bootstrapArgs {
 		switch args[i] {
 		case "--project":
 			ba.project = args[i+1]
-			i++
-		case "--persona":
-			ba.persona = args[i+1]
 			i++
 		case "--url":
 			ba.url = args[i+1]
@@ -50,8 +46,8 @@ func runBootstrap(args bootstrapArgs) error {
 
 	client := &http.Client{Timeout: 5 * time.Second}
 
-	// Fetch global memories
-	memories, err := fetchMemories(client, args.url, "global", "", "", 100)
+	// Fetch global bootstrap memories
+	memories, err := fetchMemories(client, args.url, "global", "", "bootstrap", 100)
 	if err != nil {
 		// Silent exit if admin API is unreachable — agent starts without memory
 		return nil
@@ -59,17 +55,9 @@ func runBootstrap(args bootstrapArgs) error {
 
 	// Fetch project-scoped memories
 	if args.project != "" {
-		projectMems, err := fetchMemories(client, args.url, "project", args.project, "", 100)
+		projectMems, err := fetchMemories(client, args.url, "project", args.project, "bootstrap", 100)
 		if err == nil {
 			memories = append(memories, projectMems...)
-		}
-	}
-
-	// Fetch persona-scoped memories
-	if args.project != "" && args.persona != "" {
-		personaMems, err := fetchMemories(client, args.url, "persona", args.project, args.persona, 100)
-		if err == nil {
-			memories = append(memories, personaMems...)
 		}
 	}
 
@@ -77,11 +65,18 @@ func runBootstrap(args bootstrapArgs) error {
 		return nil
 	}
 
-	fmt.Print(bootstrap.Format(args.project, memories))
+	output := bootstrap.Format(args.project, memories)
+
+	if len(output) > bootstrap.MaxBootstrapBytes {
+		fmt.Fprintf(os.Stderr, "WARNING: bootstrap output is %dKB (limit: %dKB). MCP clients may truncate it. Remove or shorten some bootstrap memories.\n",
+			len(output)/1024, bootstrap.MaxBootstrapBytes/1024)
+	}
+
+	fmt.Print(output)
 	return nil
 }
 
-func fetchMemories(client *http.Client, baseURL, scope, project, persona string, limit int) ([]t.Memory, error) {
+func fetchMemories(client *http.Client, baseURL, scope, project, typ string, limit int) ([]t.Memory, error) {
 	u, err := url.Parse(baseURL + "/api/memories/")
 	if err != nil {
 		return nil, err
@@ -93,8 +88,8 @@ func fetchMemories(client *http.Client, baseURL, scope, project, persona string,
 	if project != "" {
 		q.Set("project", project)
 	}
-	if persona != "" {
-		q.Set("persona", persona)
+	if typ != "" {
+		q.Set("type", typ)
 	}
 	u.RawQuery = q.Encode()
 

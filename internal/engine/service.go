@@ -1,4 +1,4 @@
-package memory
+package engine
 
 import (
 	"context"
@@ -13,11 +13,10 @@ import (
 )
 
 const (
-	contradictionThreshold float32  = 0.75
-	decayLambda            float64  = 0.005
-	scopeWeightPersona     float64  = 1.0
-	scopeWeightProject     float64  = 0.8
-	scopeWeightGlobal      float64  = 0.6
+	contradictionThreshold float32 = 0.75
+	decayLambda            float64 = 0.005
+	scopeWeightProject     float64 = 1.0
+	scopeWeightGlobal      float64 = 0.8
 )
 
 type Service struct {
@@ -58,7 +57,6 @@ func (s *Service) Remember(ctx context.Context, input RememberInput) (*RememberR
 		Content:    input.Content,
 		Scope:      input.Scope,
 		Project:    input.Project,
-		Persona:    input.Persona,
 		Type:       input.Type,
 		Tags:       input.Tags,
 		Weight:     input.Weight,
@@ -91,7 +89,7 @@ func (s *Service) Remember(ctx context.Context, input RememberInput) (*RememberR
 }
 
 func (s *Service) findContradictions(ctx context.Context, vector []float32, input RememberInput) []ContradictionMatch {
-	where, args := pg.HierarchicalWhere(string(input.Scope), input.Project, input.Persona, 1)
+	where, args := pg.HierarchicalWhere(string(input.Scope), input.Project, 1)
 	hits, err := s.pg.SearchWithWhere(ctx, vector, where, args, 5)
 	if err != nil {
 		return nil
@@ -131,7 +129,7 @@ func (s *Service) Recall(ctx context.Context, input RecallInput) ([]RecallResult
 		fetchLimit = 15
 	}
 
-	where, args := pg.HierarchicalWhere(input.Scope, input.Project, input.Persona, 1)
+	where, args := pg.HierarchicalWhere(input.Scope, input.Project, 1)
 	hits, err := s.pg.SearchWithWhere(ctx, vector, where, args, fetchLimit)
 	if err != nil {
 		return nil, fmt.Errorf("search: %w", err)
@@ -178,8 +176,6 @@ func (s *Service) Recall(ctx context.Context, input RecallInput) ([]RecallResult
 
 func scopeWeight(scope Scope) float64 {
 	switch scope {
-	case ScopePersona:
-		return scopeWeightPersona
 	case ScopeProject:
 		return scopeWeightProject
 	default:
@@ -235,7 +231,6 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]Memory, error) {
 	filter := pg.Filter{
 		Scope:   input.Scope,
 		Project: input.Project,
-		Persona: input.Persona,
 		Type:    input.Type,
 	}
 

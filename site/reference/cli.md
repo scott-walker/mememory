@@ -16,9 +16,47 @@ make cli    # Produces bin/mememory
 
 ## Commands
 
+### setup
+
+Bring up the bundled Docker stack and write a `.env` file. Idempotent — never overwrites an existing `.env`.
+
+```bash
+mememory setup
+```
+
+**What it does:**
+
+1. Resolves `DATA_DIR` (env override or OS-standard auto-resolve, see below).
+2. Looks for `docker/docker-compose.yml` relative to the current directory or the binary location.
+3. Creates a `.env` next to the compose file with `DATABASE_URL` and `DATA_DIR` if it doesn't already exist.
+4. Runs `docker compose -f docker/docker-compose.yml up -d` with `DATA_DIR` exported.
+5. Prints the data directory path, Admin UI URL, and a backup hint.
+
+---
+
+### uninstall
+
+Stop the bundled Docker stack. Data is **preserved by default** — no Docker volumes are removed.
+
+```bash
+mememory uninstall [--purge]
+```
+
+**Without `--purge`:**
+
+- Runs `docker compose down` (without `-v`) — containers stop, bind-mounted data stays untouched.
+
+**With `--purge`:**
+
+- Stops the stack the same way, then prompts for interactive confirmation: you must type the full data directory path. Any other input aborts.
+- On confirmation, removes `$DATA_DIR` recursively.
+- The CLI never destroys Docker volumes — all data lives in a bind-mounted directory you control.
+
+---
+
 ### bootstrap
 
-Load memories for the current session and print them as Markdown to stdout. Designed for use in `SessionStart` hooks.
+Load `bootstrap`-type memories for the current session and print them as Markdown to stdout. Designed for use in `SessionStart` hooks. Only memories with `type=bootstrap` are returned — everything else must be fetched by the agent via `recall`.
 
 ```bash
 mememory bootstrap [flags]
@@ -29,16 +67,15 @@ mememory bootstrap [flags]
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--project <name>` | auto-detect from git | Project name for scope filtering |
-| `--persona <name>` | — | Include persona-scoped memories |
 | `--url <url>` | `http://localhost:4200` | Admin API URL |
 
 **Behavior:**
 
 1. If `--project` is not set, auto-detects from the current git repository's root directory name. Falls back to the current directory name if not inside a git repo.
-2. Fetches global memories from the Admin API
-3. If a project is set, also fetches project-scoped memories
-4. If both project and persona are set, also fetches persona-scoped memories
-5. Formats all memories as Markdown grouped by type (rules > feedback > facts > decisions > context)
+2. Fetches global memories with `type=bootstrap` from the Admin API
+3. If a project is set, also fetches project-scoped bootstrap memories
+4. Formats all memories as Markdown with a hard-coded `## System` section followed by grouped memories (bootstrap > rules > feedback > facts > decisions > context)
+5. If the combined output exceeds `MaxBootstrapBytes` (10KB), prints a warning to stderr — MCP clients may truncate the output, so the bootstrap set should be kept small
 6. Prints to stdout
 
 **Exit behavior:**
@@ -55,9 +92,6 @@ mememory bootstrap
 
 # Explicit project
 mememory bootstrap --project match
-
-# With persona
-mememory bootstrap --project match --persona reviewer
 
 # Custom API URL
 mememory bootstrap --url http://my-server:9200
@@ -78,10 +112,9 @@ mememory status
 ```
 Checking http://localhost:4200 ...
 OK: 42 memories stored
-  global: 15
+  global: 20
   project: 22
-  persona: 5
-  project/match: 18
+  project/match: 13
   project/mememory: 9
 ```
 
@@ -96,7 +129,7 @@ On failure, a hint is printed:
 
 ```
 FAIL: admin API unreachable: connection refused
-Fix: docker compose -f docker/docker-compose.yml -p mememory up -d
+Fix: mememory setup
 ```
 
 ---
@@ -135,14 +168,18 @@ mememory -h
 Usage: mememory <command> [flags]
 
 Commands:
+  setup        Bring up the bundled Docker stack and write .env
+  uninstall    Stop the Docker stack (data preserved). Use --purge to also delete data
   bootstrap    Load memories for the current session (SessionStart hook)
   status       Check health of memory services
   version      Print version
 
 Bootstrap flags:
   --project <name>    Override project name (default: auto-detect from git)
-  --persona <name>    Include persona-scoped memories
   --url <url>         Admin API URL (default: http://localhost:4200)
+
+Uninstall flags:
+  --purge             Delete the data directory after stopping containers (requires path confirmation)
 ```
 
 ## Environment Variables
@@ -150,6 +187,7 @@ Bootstrap flags:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MEMORY_URL` | `http://localhost:4200` | Admin API URL. Overridden by `--url` flag. |
+| `DATA_DIR` | OS-standard path | Persistent data directory. Auto-resolved if unset: `~/.local/share/mememory` (Linux/XDG), `~/Library/Application Support/mememory` (macOS), `%LOCALAPPDATA%\mememory` (Windows). |
 
 ## Exit Codes
 

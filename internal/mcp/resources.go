@@ -8,13 +8,13 @@ import (
 	mcpsdk "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/scott-walker/mememory/internal/bootstrap"
-	"github.com/scott-walker/mememory/internal/memory"
+	"github.com/scott-walker/mememory/internal/engine"
 )
 
-func RegisterResources(srv *server.MCPServer, svc *memory.Service) {
+func RegisterResources(srv *server.MCPServer, svc *engine.Service) {
 	srv.AddResource(
 		mcpsdk.NewResource(
-			"memory://bootstrap",
+			"mememory://bootstrap",
 			"Session Bootstrap",
 			mcpsdk.WithResourceDescription("Essential memories for session initialization. Read this at the start of every session to load user identity, global rules, and feedback."),
 			mcpsdk.WithMIMEType("text/plain"),
@@ -24,7 +24,7 @@ func RegisterResources(srv *server.MCPServer, svc *memory.Service) {
 
 	srv.AddResourceTemplate(
 		mcpsdk.NewResourceTemplate(
-			"memory://bootstrap/{project}",
+			"mememory://bootstrap/{project}",
 			"Project Bootstrap",
 			mcpsdk.WithTemplateDescription("Essential memories for a specific project session. Returns global + project-scoped memories."),
 			mcpsdk.WithTemplateMIMEType("text/plain"),
@@ -33,11 +33,12 @@ func RegisterResources(srv *server.MCPServer, svc *memory.Service) {
 	)
 }
 
-func bootstrapHandler(svc *memory.Service) server.ResourceHandlerFunc {
+func bootstrapHandler(svc *engine.Service) server.ResourceHandlerFunc {
 	return func(ctx context.Context, req mcpsdk.ReadResourceRequest) ([]mcpsdk.ResourceContents, error) {
 		// Load all global memories — they form the base context for any session
-		memories, err := svc.List(ctx, memory.ListInput{
+		memories, err := svc.List(ctx, engine.ListInput{
 			Scope: "global",
+			Type:  "bootstrap",
 			Limit: 50,
 		})
 		if err != nil {
@@ -56,17 +57,18 @@ func bootstrapHandler(svc *memory.Service) server.ResourceHandlerFunc {
 	}
 }
 
-func projectBootstrapHandler(svc *memory.Service) server.ResourceTemplateHandlerFunc {
+func projectBootstrapHandler(svc *engine.Service) server.ResourceTemplateHandlerFunc {
 	return func(ctx context.Context, req mcpsdk.ReadResourceRequest) ([]mcpsdk.ResourceContents, error) {
-		// Extract project from URI: memory://bootstrap/{project}
+		// Extract project from URI: mememory://bootstrap/{project}
 		project := extractProject(req.Params.URI)
 		if project == "" {
 			return nil, fmt.Errorf("project name required in URI")
 		}
 
 		// Load global memories
-		global, err := svc.List(ctx, memory.ListInput{
+		global, err := svc.List(ctx, engine.ListInput{
 			Scope: "global",
+			Type:  "bootstrap",
 			Limit: 50,
 		})
 		if err != nil {
@@ -74,9 +76,10 @@ func projectBootstrapHandler(svc *memory.Service) server.ResourceTemplateHandler
 		}
 
 		// Load project-scoped memories
-		projectMems, err := svc.List(ctx, memory.ListInput{
+		projectMems, err := svc.List(ctx, engine.ListInput{
 			Scope:   "project",
 			Project: project,
+			Type:    "bootstrap",
 			Limit:   50,
 		})
 		if err != nil {
@@ -97,8 +100,8 @@ func projectBootstrapHandler(svc *memory.Service) server.ResourceTemplateHandler
 }
 
 func extractProject(uri string) string {
-	// memory://bootstrap/match → match
-	const prefix = "memory://bootstrap/"
+	// mememory://bootstrap/match → match
+	const prefix = "mememory://bootstrap/"
 	if strings.HasPrefix(uri, prefix) {
 		return strings.TrimPrefix(uri, prefix)
 	}

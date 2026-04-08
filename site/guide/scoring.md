@@ -15,7 +15,7 @@ Each component:
 | Component | Range | Source |
 |-----------|-------|--------|
 | `similarity` | 0.0 - 1.0 | Cosine similarity between query embedding and memory embedding |
-| `scope_weight` | 0.6 - 1.0 | Determined by the memory's scope level |
+| `scope_weight` | 0.8 - 1.0 | Determined by the memory's scope level |
 | `memory_weight` | 0.1 - 1.0 | Explicitly set by the user via `weight` parameter |
 | `temporal_decay` | 0.0 - 1.0 | Exponential decay based on time since last update |
 
@@ -35,9 +35,8 @@ More specific memories are prioritized over general ones:
 
 | Scope | Weight | Effect |
 |-------|--------|--------|
-| `persona` | 1.0 | No penalty — persona memories get full score |
-| `project` | 0.8 | 20% reduction — slightly less than persona |
-| `global` | 0.6 | 40% reduction — global knowledge yields to local |
+| `project` | 1.0 | No penalty — project memories get full score |
+| `global` | 0.8 | 20% reduction — global knowledge yields to local |
 
 This ensures that a project-level architecture decision outranks a loosely related global fact, even if the global fact has slightly higher vector similarity.
 
@@ -119,9 +118,9 @@ Suppose you query `recall(query="state management", project="match", limit=3)`:
 
 | Memory | Similarity | Scope | Weight | Age | Final Score |
 |--------|-----------|-------|--------|-----|-------------|
-| "Uses Zustand for stores" (project:match) | 0.92 | project (0.8) | 1.0 | 5d (0.975) | **0.718** |
-| "Prefer Redux for large apps" (global) | 0.95 | global (0.6) | 1.0 | 60d (0.741) | **0.422** |
-| "State management is complex" (global) | 0.88 | global (0.6) | 0.5 | 2d (0.990) | **0.262** |
+| "Uses Zustand for stores" (project:match) | 0.92 | project (1.0) | 1.0 | 5d (0.975) | **0.897** |
+| "Prefer Redux for large apps" (global) | 0.95 | global (0.8) | 1.0 | 60d (0.741) | **0.563** |
+| "State management is complex" (global) | 0.88 | global (0.8) | 0.5 | 2d (0.990) | **0.349** |
 
 The project-specific Zustand memory ranks first despite lower raw similarity, because scope weight and recency push it ahead.
 

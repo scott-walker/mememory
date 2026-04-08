@@ -29,6 +29,9 @@ func NewClient(databaseURL string) (*Client, error) {
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("postgres ping: %w", err)
 	}
+	if _, err := db.ExecContext(context.Background(), "CREATE EXTENSION IF NOT EXISTS vector"); err != nil {
+		return nil, fmt.Errorf("pgvector extension is not available: %w\n\nhint: install pgvector (https://github.com/pgvector/pgvector#installation)\n      and ensure the connecting user has CREATE privilege, or ask your DBA to run:\n      CREATE EXTENSION vector;", err)
+	}
 	db.SetMaxOpenConns(10)
 	db.SetMaxIdleConns(5)
 	return &Client{db: db}, nil
@@ -79,21 +82,20 @@ func (c *Client) RunMigrations(ctx context.Context) error {
 func (c *Client) Upsert(ctx context.Context, id string, embedding []float32, mem *t.Memory) error {
 	vec := pgvector.NewVector(embedding)
 	_, err := c.db.ExecContext(ctx, `
-		INSERT INTO memories (id, content, embedding, scope, project, persona, type, tags, weight, supersedes, created_at, updated_at, ttl)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		INSERT INTO memories (id, content, embedding, scope, project, type, tags, weight, supersedes, created_at, updated_at, ttl)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		ON CONFLICT (id) DO UPDATE SET
 			content = EXCLUDED.content,
 			embedding = EXCLUDED.embedding,
 			scope = EXCLUDED.scope,
 			project = EXCLUDED.project,
-			persona = EXCLUDED.persona,
 			type = EXCLUDED.type,
 			tags = EXCLUDED.tags,
 			weight = EXCLUDED.weight,
 			supersedes = EXCLUDED.supersedes,
 			updated_at = EXCLUDED.updated_at,
 			ttl = EXCLUDED.ttl`,
-		id, mem.Content, vec, string(mem.Scope), nilIfEmpty(mem.Project), nilIfEmpty(mem.Persona),
+		id, mem.Content, vec, string(mem.Scope), nilIfEmpty(mem.Project),
 		string(mem.Type), pq.Array(mem.Tags), mem.Weight, nilIfEmpty(mem.Supersedes),
 		mem.CreatedAt, mem.UpdatedAt, mem.TTL,
 	)
@@ -109,7 +111,7 @@ func (c *Client) Search(ctx context.Context, embedding []float32, filter Filter,
 	args = append([]interface{}{vec}, args...)
 
 	query := fmt.Sprintf(`
-		SELECT id, content, scope, project, persona, type, tags, weight, supersedes, created_at, updated_at, ttl,
+		SELECT id, content, scope, project, type, tags, weight, supersedes, created_at, updated_at, ttl,
 			1 - (embedding <=> $1) AS score
 		FROM memories
 		%s
@@ -131,7 +133,7 @@ func (c *Client) SearchWithWhere(ctx context.Context, embedding []float32, where
 	args := append([]interface{}{vec}, whereArgs...)
 
 	query := fmt.Sprintf(`
-		SELECT id, content, scope, project, persona, type, tags, weight, supersedes, created_at, updated_at, ttl,
+		SELECT id, content, scope, project, type, tags, weight, supersedes, created_at, updated_at, ttl,
 			1 - (embedding <=> $1) AS score
 		FROM memories
 		%s
@@ -149,7 +151,7 @@ func (c *Client) SearchWithWhere(ctx context.Context, embedding []float32, where
 
 func (c *Client) GetByID(ctx context.Context, id string) (*t.Memory, error) {
 	row := c.db.QueryRowContext(ctx, `
-		SELECT id, content, scope, project, persona, type, tags, weight, supersedes, created_at, updated_at, ttl
+		SELECT id, content, scope, project, type, tags, weight, supersedes, created_at, updated_at, ttl
 		FROM memories WHERE id = $1`, id)
 	mem, err := scanMemory(row)
 	if err == sql.ErrNoRows {
@@ -172,7 +174,7 @@ func (c *Client) Delete(ctx context.Context, id string) error {
 func (c *Client) List(ctx context.Context, filter Filter, limit int) ([]t.Memory, error) {
 	where, args := filter.toWhere(0)
 	query := fmt.Sprintf(`
-		SELECT id, content, scope, project, persona, type, tags, weight, supersedes, created_at, updated_at, ttl
+		SELECT id, content, scope, project, type, tags, weight, supersedes, created_at, updated_at, ttl
 		FROM memories %s
 		ORDER BY updated_at DESC
 		LIMIT %d`, where, limit)
@@ -205,7 +207,6 @@ func (c *Client) Stats(ctx context.Context) (*t.StatsResult, error) {
 	result := &t.StatsResult{
 		ByScope:   make(map[string]uint64),
 		ByProject: make(map[string]uint64),
-		ByPersona: make(map[string]uint64),
 		ByType:    make(map[string]uint64),
 	}
 
@@ -283,7 +284,6 @@ func (c *Client) Close() error {
 type Filter struct {
 	Scope   string
 	Project string
-	Persona string
 	Type    string
 }
 
@@ -302,11 +302,6 @@ func (f Filter) toWhere(argOffset int) (string, []interface{}) {
 		args = append(args, f.Project)
 		idx++
 	}
-	if f.Persona != "" {
-		conds = append(conds, fmt.Sprintf("persona = $%d", idx))
-		args = append(args, f.Persona)
-		idx++
-	}
 	if f.Type != "" {
 		conds = append(conds, fmt.Sprintf("type = $%d", idx))
 		args = append(args, f.Type)
@@ -318,10 +313,12 @@ func (f Filter) toWhere(argOffset int) (string, []interface{}) {
 	return "WHERE " + strings.Join(conds, " AND "), args
 }
 
-// HierarchicalWhere builds the OR-based hierarchical filter for recall
-func HierarchicalWhere(scope, project, persona string, argOffset int) (string, []interface{}) {
-	// If explicit scope with no project/persona — simple filter
-	if scope != "" && project == "" && persona == "" {
+// HierarchicalWhere builds the OR-based hierarchical filter for recall.
+// With project set: searches global + project-scoped memories.
+// Without project: searches by explicit scope only.
+func HierarchicalWhere(scope, project string, argOffset int) (string, []interface{}) {
+	// If explicit scope with no project — simple filter
+	if scope != "" && project == "" {
 		return fmt.Sprintf("WHERE scope = $%d", argOffset+1), []interface{}{scope}
 	}
 
@@ -335,16 +332,6 @@ func HierarchicalWhere(scope, project, persona string, argOffset int) (string, [
 	if project != "" {
 		clauses = append(clauses, fmt.Sprintf("(scope = 'project' AND project = $%d)", idx))
 		args = append(args, project)
-		idx++
-	}
-
-	if persona != "" {
-		if project != "" {
-			clauses = append(clauses, fmt.Sprintf("(scope = 'persona' AND persona = $%d AND project = $%d)", idx, idx-1))
-		} else {
-			clauses = append(clauses, fmt.Sprintf("(scope = 'persona' AND persona = $%d)", idx))
-		}
-		args = append(args, persona)
 	}
 
 	return "WHERE (" + strings.Join(clauses, " OR ") + ")", args
@@ -354,11 +341,11 @@ func HierarchicalWhere(scope, project, persona string, argOffset int) (string, [
 
 func scanMemory(row *sql.Row) (*t.Memory, error) {
 	var m t.Memory
-	var project, persona, supersedes sql.NullString
+	var project, supersedes sql.NullString
 	var ttl sql.NullTime
 	var scope, typ string
 
-	err := row.Scan(&m.ID, &m.Content, &scope, &project, &persona, &typ,
+	err := row.Scan(&m.ID, &m.Content, &scope, &project, &typ,
 		pq.Array(&m.Tags), &m.Weight, &supersedes, &m.CreatedAt, &m.UpdatedAt, &ttl)
 	if err != nil {
 		return nil, err
@@ -368,9 +355,6 @@ func scanMemory(row *sql.Row) (*t.Memory, error) {
 	m.Type = t.MemoryType(typ)
 	if project.Valid {
 		m.Project = project.String
-	}
-	if persona.Valid {
-		m.Persona = persona.String
 	}
 	if supersedes.Valid {
 		m.Supersedes = supersedes.String
@@ -383,11 +367,11 @@ func scanMemory(row *sql.Row) (*t.Memory, error) {
 
 func scanMemoryFromRows(rows *sql.Rows) (*t.Memory, error) {
 	var m t.Memory
-	var project, persona, supersedes sql.NullString
+	var project, supersedes sql.NullString
 	var ttl sql.NullTime
 	var scope, typ string
 
-	err := rows.Scan(&m.ID, &m.Content, &scope, &project, &persona, &typ,
+	err := rows.Scan(&m.ID, &m.Content, &scope, &project, &typ,
 		pq.Array(&m.Tags), &m.Weight, &supersedes, &m.CreatedAt, &m.UpdatedAt, &ttl)
 	if err != nil {
 		return nil, err
@@ -397,9 +381,6 @@ func scanMemoryFromRows(rows *sql.Rows) (*t.Memory, error) {
 	m.Type = t.MemoryType(typ)
 	if project.Valid {
 		m.Project = project.String
-	}
-	if persona.Valid {
-		m.Persona = persona.String
 	}
 	if supersedes.Valid {
 		m.Supersedes = supersedes.String
@@ -414,12 +395,12 @@ func scanResults(rows *sql.Rows) ([]SearchResult, error) {
 	var results []SearchResult
 	for rows.Next() {
 		var m t.Memory
-		var project, persona, supersedes sql.NullString
+		var project, supersedes sql.NullString
 		var ttl sql.NullTime
 		var scope, typ string
 		var score float32
 
-		err := rows.Scan(&m.ID, &m.Content, &scope, &project, &persona, &typ,
+		err := rows.Scan(&m.ID, &m.Content, &scope, &project, &typ,
 			pq.Array(&m.Tags), &m.Weight, &supersedes, &m.CreatedAt, &m.UpdatedAt, &ttl, &score)
 		if err != nil {
 			return nil, err
@@ -429,9 +410,6 @@ func scanResults(rows *sql.Rows) ([]SearchResult, error) {
 		m.Type = t.MemoryType(typ)
 		if project.Valid {
 			m.Project = project.String
-		}
-		if persona.Valid {
-			m.Persona = persona.String
 		}
 		if supersedes.Valid {
 			m.Supersedes = supersedes.String

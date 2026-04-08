@@ -2,34 +2,42 @@
 
 ## Requirements
 
-- Docker and Docker Compose
+- PostgreSQL >= 14 with the `pgvector` extension
+- Docker and Docker Compose (only for the bundled quick-start path)
 - An MCP-compatible client (Claude Code, or any MCP client)
 
-No Go, Node.js, or other toolchains needed. Everything runs in containers.
+You can either bring your own Postgres or let `mememory setup` bring up the bundled Docker stack (Postgres with pgvector + Ollama).
 
-## Quick Start
-
-### 1. Clone and start
+## Quick Start (bundled stack)
 
 ```bash
 git clone https://github.com/scott-walker/mememory.git
 cd mememory
-cp .env.example .env    # edit if needed
-docker compose -f docker/docker-compose.yml up -d
+mememory setup
 ```
 
-First start pulls the embedding model (~274 MB). Subsequent starts are instant.
+`mememory setup` resolves a data directory, writes a `.env` next to `docker-compose.yml`, and runs `docker compose up -d`. First start pulls the embedding model (~274 MB).
+
+## Bring your own Postgres
+
+`DATABASE_URL` is **required** — there is no fallback. If unset, the server exits immediately with a clear hint.
+
+```bash
+export DATABASE_URL=postgres://user:pass@your-host:5432/mememory?sslmode=disable
+```
+
+The `pgvector` extension is verified at startup. If missing, the server fails fast with installation instructions.
 
 ### 2. Connect your MCP client
 
-Add to your Claude Code config (`~/.claude/.claude.json`, inside `mcpServers`):
+Add to your Claude Code config (`~/.claude/.mcp.json`, inside `mcpServers`):
 
 ```json
 {
-  "memory": {
+  "mememory": {
     "type": "stdio",
     "command": "docker",
-    "args": ["exec", "-i", "mememory-admin", "memory-server"],
+    "args": ["exec", "-i", "mememory-admin", "mememory-server"],
     "env": {}
   }
 }
@@ -50,7 +58,7 @@ Add a `SessionStart` hook to your Claude Code settings (`settings.json`) so that
         "hooks": [
           {
             "type": "command",
-            "command": "docker exec mememory-admin memory-server --bootstrap"
+            "command": "mememory bootstrap"
           }
         ]
       }
@@ -71,44 +79,52 @@ All configuration is via environment variables in `.env`:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MEMORY_DATA_DIR` | `~/.mememory` | Where data is stored on disk |
-| `POSTGRES_PORT` | `5432` | PostgreSQL port (change if 5432 is taken) |
-| `POSTGRES_PASSWORD` | `memory` | PostgreSQL password |
+| `DATABASE_URL` | _required_ | PostgreSQL connection string. No fallback — server fails fast if unset. |
+| `DATA_DIR` | OS-standard path | Persistent data directory. CLI auto-resolves if unset. |
+| `POSTGRES_PORT` | `5432` | PostgreSQL host port (bundled stack) |
 | `OLLAMA_PORT` | `11434` | Ollama API port |
 | `ADMIN_PORT` | `4200` | Admin UI port |
 
-## Data Storage
+## Where your data lives
 
-All persistent data lives in `$MEMORY_DATA_DIR`:
+If `DATA_DIR` is not set, the `mememory` CLI auto-resolves to an OS-standard path:
+
+| Platform | Default |
+|----------|---------|
+| Linux    | `~/.local/share/mememory` (or `$XDG_DATA_HOME/mememory`) |
+| macOS    | `~/Library/Application Support/mememory` |
+| Windows  | `%LOCALAPPDATA%\mememory` |
+
+Inside that directory:
 
 ```
-~/.mememory/
+mememory/
   postgres/    PostgreSQL data files
   ollama/      Embedding model files (~274 MB)
 ```
 
-Backup: copy the directory. Restore: put it back.
+## Backup
+
+Two equivalent options:
+
+- **File copy:** copy the entire `DATA_DIR` while containers are stopped.
+- **Logical dump:** `pg_dump postgres://mememory:mememory@localhost:5432/mememory > backup.sql`
 
 ## Port Conflicts
 
-If port 5432 is already taken (e.g., another PostgreSQL instance), set `POSTGRES_PORT=5434` in `.env`. The internal container port stays 5432 — only the host mapping changes.
-
-Same for Ollama (11434) and Admin UI (4200).
+If port 5432 is already taken, set `POSTGRES_PORT=5434` in `.env`. The internal container port stays 5432 — only the host mapping changes. Same for Ollama (11434) and Admin UI (4200).
 
 ## Stack Commands
 
 ```bash
 # Start
-docker compose -f docker/docker-compose.yml --env-file .env up -d
+mememory setup
 
-# Stop (preserves data)
-docker compose -f docker/docker-compose.yml down
+# Stop (data preserved)
+mememory uninstall
 
-# Rebuild after code changes
-docker compose -f docker/docker-compose.yml --env-file .env up -d --build
-
-# Full reset (destroys data)
-docker compose -f docker/docker-compose.yml down -v
+# Stop and delete data (requires interactive confirmation)
+mememory uninstall --purge
 ```
 
 ## Development
@@ -118,7 +134,7 @@ For working on the server itself:
 ```bash
 make infra-up     # Start PostgreSQL + Ollama
 make dev          # Run MCP server locally (go run)
-make build        # Build binary -> bin/memory-server
+make build        # Build binary -> bin/mememory-server
 make admin-dev    # Admin UI with hot reload
 ```
 

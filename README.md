@@ -25,23 +25,40 @@ Store, search, and deliver knowledge across sessions. MCP server with PostgreSQL
 - **Detects** contradictions when new memories conflict with existing ones
 - **Evolves** beliefs through supersede/weight mechanisms without losing history
 
-## Quick Start
+## Requirements
+
+- PostgreSQL >= 14 with the [pgvector](https://github.com/pgvector/pgvector) extension
+- (Optional) Docker, if you want the bundled quick-start stack
+
+## Quick Start (bundled Docker stack)
 
 ```bash
 git clone https://github.com/scott-walker/mememory.git
 cd mememory
-cp .env.example .env
-docker compose -f docker/docker-compose.yml up -d
+mememory setup
 ```
 
-Add to Claude Code config (`~/.claude/.claude.json` → `mcpServers`):
+`mememory setup` resolves an OS-standard data directory, writes a `.env`, and brings up the Docker stack (Postgres with pgvector + Ollama + Admin UI).
+
+## Quick Start (BYO Postgres)
+
+If you already have a PostgreSQL >= 14 server with pgvector, just point `DATABASE_URL` at it. There is no fallback — the server fails fast if `DATABASE_URL` is unset.
+
+```bash
+export DATABASE_URL=postgres://user:pass@your-host:5432/mememory?sslmode=disable
+mememory-server
+```
+
+The server runs `CREATE EXTENSION IF NOT EXISTS vector` at startup. If your DB user lacks `CREATE` privilege, ask your DBA to install pgvector beforehand.
+
+Add to Claude Code config (`~/.claude/.mcp.json` → `mcpServers`):
 
 ```json
 {
-  "memory": {
+  "mememory": {
     "type": "stdio",
     "command": "docker",
-    "args": ["exec", "-i", "mememory-admin", "memory-server"],
+    "args": ["exec", "-i", "mememory-admin", "mememory-server"],
     "env": {}
   }
 }
@@ -52,7 +69,7 @@ Admin UI at `http://localhost:4200`.
 ## Architecture
 
 ```
-Agent ──stdio──▶ memory-server (Go, MCP)
+Agent ──stdio──▶ mememory-server (Go, MCP)
                       │
               ┌───────┴───────┐
               ▼               ▼
@@ -60,7 +77,33 @@ Agent ──stdio──▶ memory-server (Go, MCP)
         (pgvector)       (embeddings)
 ```
 
-One `docker compose up` — no Go, Node.js, or other toolchains needed.
+Bring your own Postgres, or run `mememory setup` for the bundled Docker quick-start.
+
+## Where your data lives
+
+If `DATA_DIR` is not set, the `mememory` CLI auto-resolves it to an OS-standard path:
+
+| Platform | Default location |
+|----------|------------------|
+| Linux    | `~/.local/share/mememory` (or `$XDG_DATA_HOME/mememory`) |
+| macOS    | `~/Library/Application Support/mememory` |
+| Windows  | `%LOCALAPPDATA%\mememory` |
+
+Inside that directory you get `postgres/` (database files) and `ollama/` (embedding model). Override with `DATA_DIR=/custom/path` if you want.
+
+## Backup
+
+Two equivalent options:
+
+```bash
+# Stop the stack and copy the data dir
+mememory uninstall
+cp -a "$DATA_DIR" "$DATA_DIR.backup-$(date +%F)"
+mememory setup
+
+# Or take a logical dump against any Postgres
+pg_dump "$DATABASE_URL" > mememory-$(date +%F).sql
+```
 
 ## MCP Tools
 
@@ -76,15 +119,15 @@ One `docker compose up` — no Go, Node.js, or other toolchains needed.
 
 ## Key Concepts
 
-**Scopes** — global (everywhere), project (one project), persona (one agent role within a project). Recall searches hierarchically: persona sees global + project + own.
+**Scopes** — global (everywhere) and project (one project). Recall searches hierarchically: project scope sees global + its own project.
 
-**Types** — rule, feedback, fact, decision, context. Rules and feedback load automatically at session start.
+**Types** — fact, rule, decision, feedback, context, bootstrap. Only `bootstrap` memories load automatically at session start; all other types are loaded on demand via `recall`.
 
-**Scoring** — `similarity × scope_weight × memory_weight × temporal_decay`. Recent, specific, high-weight memories rank higher.
+**Scoring** — `similarity × scope_weight × memory_weight × temporal_decay`. Recent, specific, high-weight memories rank higher. Project weight = 1.0, global weight = 0.8.
 
 **Contradiction detection** — warns when a new memory is >75% similar to existing ones. Does not block storage.
 
-**Session bootstrap** — all global rules and feedback are sent to the agent as MCP instructions at connection time. No config needed per project.
+**Session bootstrap** — `bootstrap`-type memories are delivered to the agent at session start via the `SessionStart` hook or the `mememory://bootstrap` MCP resource. Output is capped at 10KB to avoid MCP client truncation.
 
 ## Embedding Providers
 

@@ -1,18 +1,36 @@
 # Backup & Migration
 
+**TL;DR:** Stop the stack, copy `$DATA_DIR`. Or run `pg_dump` against `DATABASE_URL`. That's it.
+
+```bash
+# Option A: file copy
+mememory uninstall                              # stops containers, preserves data
+cp -a "$DATA_DIR" "$DATA_DIR.backup-$(date +%F)"
+mememory setup                                  # back up
+
+# Option B: logical dump
+pg_dump "$DATABASE_URL" > mememory-$(date +%F).sql
+```
+
 All mememory data lives in a single directory on your machine. This page covers backup, restore, export/import, and migration between machines.
 
 ## Data Location
 
-By default, all persistent data is stored in `~/.mememory/`:
+By default, all persistent data is stored under an OS-standard path resolved by the `mememory` CLI:
+
+| Platform | Default |
+|----------|---------|
+| Linux    | `~/.local/share/mememory` (or `$XDG_DATA_HOME/mememory`) |
+| macOS    | `~/Library/Application Support/mememory` |
+| Windows  | `%LOCALAPPDATA%\mememory` |
 
 ```
-~/.mememory/
+$DATA_DIR/
 ├── postgres/       # PostgreSQL data files (memories, vectors, indexes)
 └── ollama/         # Ollama model files (nomic-embed-text, etc.)
 ```
 
-This location is controlled by the `MEMORY_DATA_DIR` environment variable in `docker-compose.yml`.
+This location is controlled by the `DATA_DIR` environment variable. If unset, the CLI auto-resolves it.
 
 ## Backup
 
@@ -21,21 +39,29 @@ This location is controlled by the `MEMORY_DATA_DIR` environment variable in `do
 Stop the stack and copy the data directory:
 
 ```bash
-# Stop services to ensure data consistency
-docker compose -f docker/docker-compose.yml -p mememory down
+# Stop services to ensure data consistency (containers only, data preserved)
+mememory uninstall
 
 # Copy the data directory
-cp -r ~/.mememory ~/.mememory-backup-$(date +%Y%m%d)
+cp -a "$DATA_DIR" "$DATA_DIR.backup-$(date +%Y%m%d)"
 
 # Restart
-docker compose -f docker/docker-compose.yml -p mememory up -d
+mememory setup
 ```
 
 ::: warning
 Always stop PostgreSQL before copying its data directory. Copying while PostgreSQL is running may produce a corrupted backup.
 :::
 
-### JSON export (portable)
+### Logical dump (works against any Postgres)
+
+```bash
+pg_dump "$DATABASE_URL" > mememory-$(date +%F).sql
+```
+
+Restore later with `psql "$DATABASE_URL" < mememory-2026-04-08.sql`.
+
+### JSON export (portable across embedding providers)
 
 Export memories as JSON via the Admin API. This exports content and metadata but not vector embeddings — vectors are re-computed on import.
 
@@ -67,15 +93,9 @@ The exported JSON is an array of memory objects:
 ### From full backup
 
 ```bash
-# Stop services
-docker compose -f docker/docker-compose.yml -p mememory down
-
-# Replace data directory
-rm -rf ~/.mememory
-cp -r ~/.mememory-backup-20250115 ~/.mememory
-
-# Restart
-docker compose -f docker/docker-compose.yml -p mememory up -d
+mememory uninstall
+cp -a "$DATA_DIR.backup-20250115" "$DATA_DIR"
+mememory setup
 ```
 
 ### From JSON export
@@ -109,15 +129,15 @@ If both machines use the same embedding provider and model:
 
 ```bash
 # On source machine
-docker compose -f docker/docker-compose.yml -p mememory down
-tar czf mememory-data.tar.gz -C ~ .mememory
+mememory uninstall
+tar czf mememory-data.tar.gz -C "$(dirname "$DATA_DIR")" "$(basename "$DATA_DIR")"
 
 # Transfer to target machine
 scp mememory-data.tar.gz user@target:~/
 
 # On target machine
-tar xzf mememory-data.tar.gz -C ~
-docker compose -f docker/docker-compose.yml -p mememory up -d
+tar xzf mememory-data.tar.gz -C "$(dirname "$DATA_DIR")"
+mememory setup
 ```
 
 ### Method 2: JSON export/import
@@ -140,25 +160,13 @@ curl http://localhost:4200/api/memories/import \
 
 ## Resetting
 
-To delete all data and start fresh:
+To delete all data and start fresh, use `mememory uninstall --purge`. This requires interactive confirmation (you must type the full data directory path):
 
 ```bash
-# Stop everything
-docker compose -f docker/docker-compose.yml -p mememory down
-
-# Remove data and Docker volumes
-rm -rf ~/.mememory
-docker compose -f docker/docker-compose.yml -p mememory down -v
-
-# Start clean
-docker compose -f docker/docker-compose.yml -p mememory up -d
+mememory uninstall --purge
 ```
 
-Or use the Makefile:
-
-```bash
-make clean
-```
+The CLI never destroys Docker volumes — all data lives in a bind-mounted directory you control, and removal happens through `os.RemoveAll` against the path you confirmed.
 
 ## Selective Deletion
 
@@ -172,7 +180,7 @@ curl "http://localhost:4200/api/memories?project=old-project" -X DELETE
 curl "http://localhost:4200/api/memories?type=context" -X DELETE
 
 # Delete all memories in a scope
-curl "http://localhost:4200/api/memories?scope=persona&project=match&persona=reviewer" -X DELETE
+curl "http://localhost:4200/api/memories?scope=project&project=match" -X DELETE
 ```
 
 Or delete individual memories by ID:

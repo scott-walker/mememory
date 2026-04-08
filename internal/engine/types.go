@@ -1,4 +1,4 @@
-package memory
+package engine
 
 import t "github.com/scott-walker/mememory/internal/types"
 
@@ -19,7 +19,6 @@ type (
 const (
 	ScopeGlobal  = t.ScopeGlobal
 	ScopeProject = t.ScopeProject
-	ScopePersona = t.ScopePersona
 	TypeFact     = t.TypeFact
 	TypeRule     = t.TypeRule
 	TypeDecision = t.TypeDecision

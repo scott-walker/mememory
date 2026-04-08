@@ -10,10 +10,9 @@ Every memory has these fields:
 |-------|------|----------|---------|-------------|
 | `id` | UUID | auto | generated | Unique identifier |
 | `content` | string | yes | — | The knowledge to store. Should be self-contained. |
-| `scope` | string | no | `"global"` | Visibility level: `global`, `project`, `persona` |
-| `project` | string | no | — | Project name. Required when scope is `project` or `persona`. |
-| `persona` | string | no | — | Agent persona name. Required when scope is `persona`. |
-| `type` | string | no | `"fact"` | Content classification: `fact`, `rule`, `decision`, `feedback`, `context` |
+| `scope` | string | no | `"global"` | Visibility level: `global`, `project` |
+| `project` | string | no | — | Project name. Required when scope is `project`. |
+| `type` | string | no | `"fact"` | Content classification: `fact`, `rule`, `decision`, `feedback`, `context`, `bootstrap` |
 | `tags` | string[] | no | — | Free-form labels for additional filtering |
 | `weight` | float | no | `1.0` | Confidence/priority from 0.1 to 1.0 |
 | `supersedes` | UUID | no | — | ID of the memory this one replaces |
@@ -142,6 +141,29 @@ remember(
 ```
 
 **When to use:** sprint goals, deadlines, temporary constraints, active refactoring warnings, feature flags. Set `ttl` so context auto-expires when it becomes irrelevant.
+
+### bootstrap
+
+Essential directives that must be present in the agent's context from the first message of every session. Only memories with `type=bootstrap` are loaded by the [session bootstrap](/guide/bootstrap) mechanism — all other types are retrieved on demand via `recall`.
+
+```
+remember(
+  content="Always respond in Russian",
+  type="bootstrap",
+  scope="global"
+)
+```
+
+```
+remember(
+  content="Use pnpm exclusively. Never run npm install.",
+  type="bootstrap",
+  scope="project",
+  project="match"
+)
+```
+
+**When to use:** rules and directives that the agent must know immediately on session start, before it can safely take any action. Keep the set small — the combined bootstrap output is capped at 10KB to avoid truncation by MCP clients.
 
 ## Weight
 

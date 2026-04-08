@@ -8,10 +8,11 @@ import (
 
 	mcpsdk "github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-	"github.com/scott-walker/mememory/internal/memory"
+	"github.com/scott-walker/mememory/internal/bootstrap"
+	"github.com/scott-walker/mememory/internal/engine"
 )
 
-func RegisterTools(srv *server.MCPServer, svc *memory.Service) {
+func RegisterTools(srv *server.MCPServer, svc *engine.Service) {
 	registerHelp(srv)
 	registerRemember(srv, svc)
 	registerRecall(srv, svc)
@@ -21,7 +22,7 @@ func RegisterTools(srv *server.MCPServer, svc *memory.Service) {
 	registerStats(srv, svc)
 }
 
-func registerRemember(srv *server.MCPServer, svc *memory.Service) {
+func registerRemember(srv *server.MCPServer, svc *engine.Service) {
 	tool := mcpsdk.NewTool("remember",
 		mcpsdk.WithDescription("Store a new memory. Memories persist across sessions and are searchable by semantic similarity."),
 		mcpsdk.WithString("content",
@@ -29,13 +30,10 @@ func registerRemember(srv *server.MCPServer, svc *memory.Service) {
 			mcpsdk.Description("The content to remember"),
 		),
 		mcpsdk.WithString("scope",
-			mcpsdk.Description("Memory scope: global (all projects), project (specific project), persona (specific agent persona). Default: global"),
+			mcpsdk.Description("Memory scope: global (all projects) or project (specific project). Default: global"),
 		),
 		mcpsdk.WithString("project",
-			mcpsdk.Description("Project name (required when scope=project or scope=persona)"),
-		),
-		mcpsdk.WithString("persona",
-			mcpsdk.Description("Agent persona name, e.g. architect, reviewer, implementer (required when scope=persona)"),
+			mcpsdk.Description("Project name (required when scope=project)"),
 		),
 		mcpsdk.WithString("type",
 			mcpsdk.Description("Memory type: fact, rule, decision, feedback, context. Default: fact"),
@@ -58,7 +56,6 @@ func registerRemember(srv *server.MCPServer, svc *memory.Service) {
 		content, _ := req.GetArguments()["content"].(string)
 		scope, _ := req.GetArguments()["scope"].(string)
 		project, _ := req.GetArguments()["project"].(string)
-		persona, _ := req.GetArguments()["persona"].(string)
 		typ, _ := req.GetArguments()["type"].(string)
 		tags, _ := req.GetArguments()["tags"].(string)
 		ttl, _ := req.GetArguments()["ttl"].(string)
@@ -80,12 +77,11 @@ func registerRemember(srv *server.MCPServer, svc *memory.Service) {
 			}
 		}
 
-		result, err := svc.Remember(ctx, memory.RememberInput{
+		result, err := svc.Remember(ctx, engine.RememberInput{
 			Content:    content,
-			Scope:      memory.Scope(scope),
+			Scope:      engine.Scope(scope),
 			Project:    project,
-			Persona:    persona,
-			Type:       memory.MemoryType(typ),
+			Type:       engine.MemoryType(typ),
 			Tags:       tagList,
 			Weight:     weightF,
 			Supersedes: supersedes,
@@ -100,25 +96,45 @@ func registerRemember(srv *server.MCPServer, svc *memory.Service) {
 			return jsonResultWithWarning(result)
 		}
 
+		// Check bootstrap size when adding a bootstrap memory
+		if typ == "bootstrap" {
+			proj := project
+			allBootstrap, _ := svc.List(ctx, engine.ListInput{
+				Scope: "global",
+				Type:  "bootstrap",
+				Limit: 100,
+			})
+			if proj != "" {
+				projBootstrap, _ := svc.List(ctx, engine.ListInput{
+					Scope:   "project",
+					Project: proj,
+					Type:    "bootstrap",
+					Limit:   100,
+				})
+				allBootstrap = append(allBootstrap, projBootstrap...)
+			}
+			if warn := bootstrap.CheckSize(proj, allBootstrap); warn != "" {
+				data, _ := json.MarshalIndent(result.Memory, "", "  ")
+				return mcpsdk.NewToolResultText(fmt.Sprintf("WARNING: %s\n\nStored memory:\n%s", warn, data)), nil
+			}
+		}
+
 		return jsonResult(result.Memory)
 	})
 }
 
-func registerRecall(srv *server.MCPServer, svc *memory.Service) {
+func registerRecall(srv *server.MCPServer, svc *engine.Service) {
 	tool := mcpsdk.NewTool("recall",
-		mcpsdk.WithDescription("Search memories by semantic similarity. Returns the most relevant memories matching the query. Supports hierarchical search: persona sees global + project + own memories."),
+		mcpsdk.WithDescription("Search memories by semantic similarity. Returns the most relevant memories matching the query. Supports hierarchical search: project scope sees global + project memories."),
 		mcpsdk.WithString("query",
 			mcpsdk.Required(),
 			mcpsdk.Description("Natural language query to search for"),
 		),
 		mcpsdk.WithString("scope",
-			mcpsdk.Description("Filter by scope: global, project, persona. If omitted with project/persona set, uses hierarchical search"),
+			mcpsdk.Description("Filter by scope: global, project. If omitted with project set, uses hierarchical search"),
 		),
 		mcpsdk.WithString("project",
 			mcpsdk.Description("Filter by project name. Enables hierarchical search (global + this project)"),
-		),
-		mcpsdk.WithString("persona",
-			mcpsdk.Description("Filter by persona. Enables hierarchical search (global + project + this persona)"),
 		),
 		mcpsdk.WithNumber("limit",
 			mcpsdk.Description("Max results to return. Default: 5"),
@@ -129,7 +145,6 @@ func registerRecall(srv *server.MCPServer, svc *memory.Service) {
 		query, _ := req.GetArguments()["query"].(string)
 		scope, _ := req.GetArguments()["scope"].(string)
 		project, _ := req.GetArguments()["project"].(string)
-		persona, _ := req.GetArguments()["persona"].(string)
 		limitF, _ := req.GetArguments()["limit"].(float64)
 
 		if query == "" {
@@ -141,11 +156,10 @@ func registerRecall(srv *server.MCPServer, svc *memory.Service) {
 			limit = 5
 		}
 
-		results, err := svc.Recall(ctx, memory.RecallInput{
+		results, err := svc.Recall(ctx, engine.RecallInput{
 			Query:   query,
 			Scope:   scope,
 			Project: project,
-			Persona: persona,
 			Limit:   limit,
 		})
 		if err != nil {
@@ -156,7 +170,7 @@ func registerRecall(srv *server.MCPServer, svc *memory.Service) {
 	})
 }
 
-func registerForget(srv *server.MCPServer, svc *memory.Service) {
+func registerForget(srv *server.MCPServer, svc *engine.Service) {
 	tool := mcpsdk.NewTool("forget",
 		mcpsdk.WithDescription("Delete a memory by its ID"),
 		mcpsdk.WithString("id",
@@ -179,7 +193,7 @@ func registerForget(srv *server.MCPServer, svc *memory.Service) {
 	})
 }
 
-func registerUpdate(srv *server.MCPServer, svc *memory.Service) {
+func registerUpdate(srv *server.MCPServer, svc *engine.Service) {
 	tool := mcpsdk.NewTool("update",
 		mcpsdk.WithDescription("Update an existing memory's content. Re-embeds the content for updated semantic search."),
 		mcpsdk.WithString("id",
@@ -212,20 +226,17 @@ func registerUpdate(srv *server.MCPServer, svc *memory.Service) {
 	})
 }
 
-func registerList(srv *server.MCPServer, svc *memory.Service) {
+func registerList(srv *server.MCPServer, svc *engine.Service) {
 	tool := mcpsdk.NewTool("list",
 		mcpsdk.WithDescription("List memories with optional filters. No semantic search — returns all matching memories."),
 		mcpsdk.WithString("scope",
-			mcpsdk.Description("Filter by scope: global, project, persona"),
+			mcpsdk.Description("Filter by scope: global, project"),
 		),
 		mcpsdk.WithString("project",
 			mcpsdk.Description("Filter by project name"),
 		),
-		mcpsdk.WithString("persona",
-			mcpsdk.Description("Filter by persona"),
-		),
 		mcpsdk.WithString("type",
-			mcpsdk.Description("Filter by type: fact, rule, decision, feedback, context"),
+			mcpsdk.Description("Filter by type: fact, rule, decision, feedback, context, bootstrap"),
 		),
 		mcpsdk.WithNumber("limit",
 			mcpsdk.Description("Max results. Default: 20"),
@@ -235,7 +246,6 @@ func registerList(srv *server.MCPServer, svc *memory.Service) {
 	srv.AddTool(tool, func(ctx context.Context, req mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
 		scope, _ := req.GetArguments()["scope"].(string)
 		project, _ := req.GetArguments()["project"].(string)
-		persona, _ := req.GetArguments()["persona"].(string)
 		typ, _ := req.GetArguments()["type"].(string)
 		limitF, _ := req.GetArguments()["limit"].(float64)
 
@@ -244,10 +254,9 @@ func registerList(srv *server.MCPServer, svc *memory.Service) {
 			limit = 20
 		}
 
-		memories, err := svc.List(ctx, memory.ListInput{
+		memories, err := svc.List(ctx, engine.ListInput{
 			Scope:   scope,
 			Project: project,
-			Persona: persona,
 			Type:    typ,
 			Limit:   limit,
 		})
@@ -259,9 +268,9 @@ func registerList(srv *server.MCPServer, svc *memory.Service) {
 	})
 }
 
-func registerStats(srv *server.MCPServer, svc *memory.Service) {
+func registerStats(srv *server.MCPServer, svc *engine.Service) {
 	tool := mcpsdk.NewTool("stats",
-		mcpsdk.WithDescription("Get memory statistics: total count and breakdown by scope, project, persona, and type"),
+		mcpsdk.WithDescription("Get memory statistics: total count and breakdown by scope, project, and type"),
 	)
 
 	srv.AddTool(tool, func(ctx context.Context, req mcpsdk.CallToolRequest) (*mcpsdk.CallToolResult, error) {
@@ -308,7 +317,7 @@ const helpFull = `# mememory — Persistent Semantic Memory for AI Agents
 
 A vector-based memory system that persists across sessions. You store facts, rules, decisions, and feedback — then retrieve them later by meaning (semantic search), not by exact keywords.
 
-All agents sharing this MCP server share the same memory. Scopes and personas control visibility.
+All agents sharing this MCP server share the same memory. Scopes control visibility.
 
 ## Quick Start
 
@@ -327,17 +336,16 @@ All agents sharing this MCP server share the same memory. Scopes and personas co
 | forget | Delete a memory by ID |
 | update | Change content of existing memory (re-embeds) |
 | list | Browse memories with metadata filters (no semantic search) |
-| stats | Get counts by scope, project, persona, type |
+| stats | Get counts by scope, project, type |
 
 ## Scopes (hierarchical visibility)
 
 | Scope | Visible to | Use when |
 |-------|-----------|----------|
-| global | All projects, all agents | User preferences, cross-project rules |
+| global | All projects | User preferences, cross-project rules |
 | project | Only within named project | Project-specific architecture, decisions |
-| persona | Only named agent in named project | Agent-specific behavior, style |
 
-Hierarchy: recall(persona=X, project=Y) searches global + project:Y + persona:X.
+Hierarchy: recall(project=Y) searches global + project:Y.
 
 ## Types (content classification)
 
@@ -348,12 +356,13 @@ Hierarchy: recall(persona=X, project=Y) searches global + project:Y + persona:X.
 | decision | Choices with reasoning: "chose Zustand because..." |
 | feedback | User corrections: "don't refactor without asking" |
 | context | Temporal situation: "preparing for demo on April 5" |
+| bootstrap | Essential rules loaded at session start automatically |
 
 ## Key Parameters
 
-remember: content (required), scope, project, persona, type, tags (comma-separated), ttl (e.g. "24h", "7d"), weight (0.1-1.0), supersedes (old memory ID)
-recall: query (required), scope, project, persona, limit (default 5)
-list: scope, project, persona, type, limit (default 20)
+remember: content (required), scope, project, type, tags (comma-separated), ttl (e.g. "24h", "7d"), weight (0.1-1.0), supersedes (old memory ID)
+recall: query (required), scope, project, limit (default 5)
+list: scope, project, type, limit (default 20)
 
 ## Smart Features
 
@@ -370,7 +379,7 @@ Use case: "I used to believe X, now I believe Y" → remember(content=Y, superse
 
 ### Smart Scoring in Recall
 Results are ranked by: similarity × scope_weight × weight × temporal_decay
-- Scope weight: persona (1.0) > project (0.8) > global (0.6) — more specific = higher priority
+- Scope weight: project (1.0) > global (0.8) — more specific = higher priority
 - Temporal decay: newer memories score slightly higher (gentle exponential decay)
 - Weight: explicit confidence factor
 
@@ -385,10 +394,9 @@ Store a new memory. Content is embedded into a vector and stored in Qdrant.
 
 Parameters:
 - content (string, REQUIRED): The text to remember. Be specific and self-contained.
-- scope (string): "global" | "project" | "persona". Default: "global"
-- project (string): Project name. Required when scope=project or scope=persona.
-- persona (string): Agent persona name. Required when scope=persona.
-- type (string): "fact" | "rule" | "decision" | "feedback" | "context". Default: "fact"
+- scope (string): "global" | "project". Default: "global"
+- project (string): Project name. Required when scope=project.
+- type (string): "fact" | "rule" | "decision" | "feedback" | "context" | "bootstrap". Default: "fact"
 - tags (string): Comma-separated tags for filtering. E.g. "frontend, performance"
 - ttl (string): Auto-expire after duration. E.g. "24h", "7d", "30d". Omit for permanent.
 - weight (number): Confidence weight 0.1-1.0. Default: 1.0. Use lower values for uncertain or partially outdated beliefs.
@@ -404,7 +412,6 @@ Parameters:
 - query (string, REQUIRED): Natural language query.
 - scope (string): Filter to specific scope. Omit for hierarchical search.
 - project (string): Filter/enable hierarchical search for this project.
-- persona (string): Filter/enable hierarchical search for this persona.
 - limit (number): Max results. Default: 5.
 
 Returns: Array of {memory, score} sorted by relevance (score 0-1).
@@ -426,21 +433,21 @@ Parameters:
 Browse memories with exact filters. No semantic search — returns all matching.
 
 Parameters:
-- scope, project, persona, type: Exact match filters.
+- scope, project, type: Exact match filters.
 - limit (number): Max results. Default: 20.
 
 ## stats
-No parameters. Returns: {total, by_scope, by_project, by_persona, by_type}.
+No parameters. Returns: {total, by_scope, by_project, by_type}.
 
 ## help
 This tool. Optional: topic= "overview" | "tools" | "scopes" | "types" | "examples" | "best-practices".`
 
 const helpScopes = `# Scopes — Hierarchical Visibility
 
-Memory has three scope levels forming a hierarchy:
+Memory has two scope levels forming a hierarchy:
 
 ## global
-- Visible to ALL projects and ALL agents/personas
+- Visible to ALL projects
 - Use for: user identity, universal preferences, cross-project rules
 - Examples:
   - "User's name is Scott"
@@ -455,26 +462,10 @@ Memory has three scope levels forming a hierarchy:
   - scope=project, project="match": "Uses SQLite with better-sqlite3, no ORM"
   - scope=project, project="convervox": "Go service with PostgreSQL"
 
-## persona
-- Visible only to the named agent persona within the named project
-- Use for: agent-specific behavior, review criteria, coding style
-- Requires: project= AND persona= parameters
-- Examples:
-  - scope=persona, project="match", persona="reviewer": "Always check for inline styles and native select elements"
-  - scope=persona, project="match", persona="architect": "Prefer configuration-driven patterns"
-
 ## Hierarchical Search
 
-When you call recall(project="match", persona="architect"):
-The search covers THREE scopes simultaneously:
-1. All global memories
-2. All project="match" memories
-3. All persona="architect" + project="match" memories
-
-Results are ranked by semantic similarity across all three.
-
 When you call recall(project="match"):
-Searches global + project="match" only.
+Searches global + project="match" memories.
 
 When you call recall() with no scope filters:
 Searches global only.`
@@ -508,7 +499,14 @@ User corrections to agent behavior. The most important type — prevents repeati
 Temporal/situational information. Often benefits from TTL.
 - "Preparing for investor demo on April 5" (ttl="7d")
 - "Currently refactoring auth flow, don't touch auth-store.ts"
-- "Sprint focus: Evidence Bundle implementation"`
+- "Sprint focus: Evidence Bundle implementation"
+
+## bootstrap
+Essential rules and directives loaded automatically at session start.
+Only bootstrap-type memories are included in the SessionStart hook output.
+All other types are loaded on demand via recall.
+- "Always respond in Russian"
+- "Use mememory MCP server as the only memory source"`
 
 const helpExamples = `# Usage Examples
 
@@ -536,16 +534,10 @@ remember(
   scope="project", project="match", type="context", tags="deadline", ttl="7d"
 )
 
-## Store persona-specific behavior
-remember(
-  content="When reviewing: always verify no inline styles, no native select/date elements, all colors via CSS variables, no hardcoded hex values.",
-  scope="persona", project="match", persona="reviewer", type="rule"
-)
-
 ## Search for relevant memories
 recall(query="how does the session state machine work", project="match")
 recall(query="user preferences for communication", limit=3)
-recall(query="database architecture", project="match", persona="architect")
+recall(query="database architecture", project="match")
 
 ## Browse all feedback
 list(type="feedback")
@@ -613,7 +605,6 @@ Tags like "security", "performance", "deadline" help filter across scopes and ty
 ## 8. Scope correctly
 - Would this apply in ANY project? → global
 - Only in THIS project? → project
-- Only for THIS type of agent? → persona
 
 ## 9. Feedback is sacred
 When the user corrects your behavior, ALWAYS store it as type="feedback". This is the most valuable memory type — it prevents the same mistake across all future sessions.
@@ -644,7 +635,7 @@ func jsonResult(v interface{}) (*mcpsdk.CallToolResult, error) {
 	return mcpsdk.NewToolResultText(string(data)), nil
 }
 
-func jsonResultWithWarning(result *memory.RememberResult) (*mcpsdk.CallToolResult, error) {
+func jsonResultWithWarning(result *engine.RememberResult) (*mcpsdk.CallToolResult, error) {
 	var b strings.Builder
 
 	b.WriteString("⚠ CONTRADICTION DETECTED\n\n")

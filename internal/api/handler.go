@@ -6,11 +6,11 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/scott-walker/mememory/internal/memory"
+	"github.com/scott-walker/mememory/internal/engine"
 )
 
 type Handler struct {
-	svc *memory.Service
+	svc *engine.Service
 }
 
 func (h *Handler) Stats(w http.ResponseWriter, r *http.Request) {
@@ -29,10 +29,9 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		limit = 50
 	}
 
-	memories, err := h.svc.List(r.Context(), memory.ListInput{
+	memories, err := h.svc.List(r.Context(), engine.ListInput{
 		Scope:   q.Get("scope"),
 		Project: q.Get("project"),
-		Persona: q.Get("persona"),
 		Type:    q.Get("type"),
 		Limit:   limit,
 	})
@@ -45,7 +44,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	memories, err := h.svc.List(r.Context(), memory.ListInput{Limit: 100})
+	memories, err := h.svc.List(r.Context(), engine.ListInput{Limit: 100})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -60,7 +59,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
-	var input memory.RememberInput
+	var input engine.RememberInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
 		return
@@ -102,7 +101,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
-	var input memory.RecallInput
+	var input engine.RecallInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
 		return
@@ -119,10 +118,9 @@ func (h *Handler) Search(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) BulkDelete(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	// List matching memories, then delete each
-	memories, err := h.svc.List(r.Context(), memory.ListInput{
+	memories, err := h.svc.List(r.Context(), engine.ListInput{
 		Scope:   q.Get("scope"),
 		Project: q.Get("project"),
-		Persona: q.Get("persona"),
 		Type:    q.Get("type"),
 		Limit:   1000,
 	})
@@ -141,7 +139,7 @@ func (h *Handler) BulkDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Export(w http.ResponseWriter, r *http.Request) {
-	memories, err := h.svc.List(r.Context(), memory.ListInput{Limit: 10000})
+	memories, err := h.svc.List(r.Context(), engine.ListInput{Limit: 10000})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -151,7 +149,7 @@ func (h *Handler) Export(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Import(w http.ResponseWriter, r *http.Request) {
-	var memories []memory.RememberInput
+	var memories []engine.RememberInput
 	if err := json.NewDecoder(r.Body).Decode(&memories); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON: "+err.Error())
 		return

@@ -32,7 +32,7 @@ This starts PostgreSQL (pgvector) and Ollama in Docker. On first run, Ollama dow
 make dev
 ```
 
-This runs `go run ./cmd/memory-server` with the default environment variables pointing to the local Docker services.
+This runs `go run ./cmd/mememory-server` with the default environment variables pointing to the local Docker services.
 
 ### 4. Run the Admin API + Web UI
 
@@ -47,17 +47,17 @@ This starts the Go admin server and the React dev server (with hot reload). The 
 ### 5. Build binaries
 
 ```bash
-make build        # Build memory-server → bin/memory-server
+make build        # Build mememory-server → bin/mememory-server
 make cli          # Build mememory CLI → bin/mememory
-make admin-build  # Build admin (Go + React) → bin/memory-admin
+make admin-build  # Build admin (Go + React) → bin/mememory-admin
 ```
 
 ## Project Structure
 
 ```
 cmd/
-├── memory-server/    # MCP server (stdio transport + bootstrap mode)
-├── memory-admin/     # Admin API + web UI server
+├── mememory-server/    # MCP server (stdio transport + bootstrap mode)
+├── mememory-admin/     # Admin API + web UI server
 └── mememory/         # Native CLI (bootstrap, status)
 
 internal/
@@ -92,7 +92,7 @@ All embedding providers implement this interface. `Embed` handles batch embeddin
 
 ### Memory Service
 
-The business logic layer in `internal/memory/service.go`:
+The business logic layer in `internal/engine/service.go`:
 
 ```go
 type Service struct { ... }
@@ -206,7 +206,7 @@ make infra-down     # Stop Docker services
 make dev            # Run MCP server (dev mode)
 make admin          # Run admin API (dev mode)
 make admin-dev      # Run admin API + React dev server
-make build          # Build memory-server binary
+make build          # Build mememory-server binary
 make cli            # Build mememory CLI binary
 make admin-build    # Build admin binary with embedded web UI
 make clean          # Remove binaries + Docker volumes

@@ -6,13 +6,13 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - ${MEMORY_DATA_DIR:-~/.mememory}/postgres:/var/lib/postgresql/data
+      - ${DATA_DIR:-./data}/postgres:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: memory
-      POSTGRES_USER: memory
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-memory}
+      POSTGRES_DB: mememory
+      POSTGRES_USER: mememory
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mememory}
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U memory"]
+      test: ["CMD-SHELL", "pg_isready -U mememory"]
       start_period: 10s
       interval: 5s
       timeout: 5s
@@ -27,7 +27,7 @@ services:
     ports:
       - "${OLLAMA_PORT:-11434}:11434"
     volumes:
-      - ${MEMORY_DATA_DIR:-~/.mememory}/ollama:/root/.ollama
+      - ${DATA_DIR:-./data}/ollama:/root/.ollama
     environment:
       OLLAMA_HOST: "0.0.0.0:11434"
     healthcheck:
@@ -46,7 +46,7 @@ services:
     ports:
       - "${ADMIN_PORT:-4200}:4200"
     environment:
-      DATABASE_URL: postgres://memory:${POSTGRES_PASSWORD:-memory}@postgres:5432/memory?sslmode=disable
+      DATABASE_URL: postgres://mememory:${POSTGRES_PASSWORD:-mememory}@postgres:5432/mememory?sslmode=disable
       OLLAMA_URL: http://ollama:11434
       ADMIN_PORT: "4200"
     depends_on:

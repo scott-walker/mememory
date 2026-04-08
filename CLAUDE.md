@@ -1,6 +1,6 @@
 # mememory
 
-Hierarchical MCP memory server for AI agents. Provides persistent semantic memory across sessions with three scope levels: global, project, persona.
+Hierarchical MCP memory server for AI agents. Provides persistent semantic memory across sessions with two scope levels: global and project.
 
 ## Stack
 
@@ -15,7 +15,7 @@ Hierarchical MCP memory server for AI agents. Provides persistent semantic memor
 make infra-up     # Start PostgreSQL + Ollama (Docker)
 make infra-down   # Stop Docker services
 make setup        # Init DB + pull embedding model (run once)
-make build        # Build Go binary → bin/memory-server
+make build        # Build Go binary → bin/mememory-server
 make run          # Build and run
 make dev          # Run with go run (no build)
 make clean        # Remove binary + Docker volumes
@@ -27,13 +27,15 @@ make admin-build  # Build admin binary with embedded web UI
 ## Architecture
 
 ```
-cmd/memory-server/main.go           # Entry point, CLI bootstrap mode, stdio MCP transport
-cmd/memory-admin/main.go            # Admin API + web UI server (:4200)
+cmd/mememory-server/main.go           # MCP server entry point (stdio transport)
+cmd/mememory-admin/main.go            # Admin API + web UI server (:4200)
+cmd/mememory/main.go                # User-facing CLI (setup, bootstrap, status)
+cmd/mememory/bootstrap.go           # CLI bootstrap: fetches type=bootstrap memories via admin API
 internal/bootstrap/format.go        # Shared bootstrap formatter (CLI + MCP resources)
 internal/mcp/tools.go               # 7 MCP tools (remember, recall, forget, update, list, stats, help)
-internal/mcp/resources.go           # MCP resources (memory://bootstrap, memory://bootstrap/{project})
-internal/memory/service.go          # Business logic, scoring, contradiction detection
-internal/memory/types.go            # Type re-exports from internal/types
+internal/mcp/resources.go           # MCP resources (mememory://bootstrap, mememory://bootstrap/{project})
+internal/engine/service.go          # Business logic, scoring, contradiction detection
+internal/engine/types.go            # Type re-exports from internal/types
 internal/types/types.go             # Memory, Scope, MemoryType, input/output DTOs
 internal/postgres/client.go         # PostgreSQL client, migrations, filters, hierarchical WHERE
 internal/embeddings/ollama.go       # Ollama HTTP embedding client
@@ -47,37 +49,39 @@ web/                                # React admin UI source
 
 | Tool | Params | Description |
 |------|--------|-------------|
-| `remember` | content, scope, project?, persona?, type, tags?, weight?, ttl?, supersedes? | Store a memory |
-| `recall` | query, scope?, project?, persona?, limit? | Semantic search with hierarchical inheritance |
+| `remember` | content, scope, project?, type, tags?, weight?, ttl?, supersedes? | Store a memory (warns if a `bootstrap`-typed entry pushes total bootstrap output past 10KB) |
+| `recall` | query, scope?, project?, limit? | Semantic search with hierarchical inheritance |
 | `forget` | id | Delete by ID |
 | `update` | id, content | Re-embed and update |
-| `list` | scope?, project?, persona?, type?, limit? | List with filters |
+| `list` | scope?, project?, type?, limit? | List with filters |
 | `stats` | — | Count breakdown by scope/project/type |
 | `help` | topic? | Usage documentation |
+
+Memory types: `fact`, `rule`, `decision`, `feedback`, `context`, `bootstrap`. Only `bootstrap`-typed memories are loaded automatically at session start; everything else is fetched on demand via `recall`.
 
 ## Bootstrap (CLI mode)
 
 ```bash
-memory-server --bootstrap                                  # global only
-memory-server --bootstrap --project myapp                  # global + project
-memory-server --bootstrap --project myapp --persona dev    # global + project + persona
+mememory bootstrap                            # global bootstrap memories
+mememory bootstrap --project myapp            # global + project bootstrap memories
+mememory bootstrap --url http://host:4200     # custom admin API URL
 ```
 
-Designed for SessionStart hooks. Connects to PostgreSQL, reads memories, prints Markdown, exits. No Ollama needed.
+Designed for SessionStart hooks. Talks to the admin HTTP API (no direct DB access), filters by `type=bootstrap`, formats as Markdown, prints to stdout. Output is capped at 10KB (`bootstrap.MaxBootstrapBytes`); larger outputs print a warning to stderr because MCP clients truncate hook output. The formatted Markdown always begins with a hard-coded `## System` section instructing the agent to treat mememory as the only memory source and to call `recall` on the user's first message.
 
 ## Scopes & Hierarchy
 
-- **global** — visible to all projects and personas
+- **global** — visible to all projects
 - **project** — visible within a specific project
-- **persona** — visible to a specific agent persona within a project
 
-Hierarchical search: `recall(persona=X, project=Y)` searches global + project:Y + persona:X.
+Hierarchical search: `recall(project=Y)` searches global + project:Y. Scope weights in scoring: `project=1.0`, `global=0.8`.
 
 ## Environment Variables
 
 | Var | Default | Description |
 |-----|---------|-------------|
-| `DATABASE_URL` | postgres://memory:memory@localhost:5432/memory?sslmode=disable | PostgreSQL connection |
+| `DATABASE_URL` | _required, no default_ | PostgreSQL connection (e.g. `postgres://mememory:mememory@localhost:5432/mememory?sslmode=disable`). Server fails fast if unset. |
+| `DATA_DIR` | OS-standard path | Persistent data directory. CLI auto-resolves: `~/.local/share/mememory` (Linux), `~/Library/Application Support/mememory` (macOS), `%LOCALAPPDATA%\mememory` (Windows). |
 | `OLLAMA_URL` | http://localhost:11434 | Ollama API URL |
 | `ADMIN_PORT` | 4200 | Admin UI port |
 

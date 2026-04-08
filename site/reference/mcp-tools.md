@@ -11,10 +11,9 @@ Store a new memory. The content is embedded into a vector and persisted in Postg
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `content` | string | **yes** | — | The text to remember. Should be self-contained and specific. |
-| `scope` | string | no | `"global"` | Visibility: `"global"`, `"project"`, `"persona"` |
-| `project` | string | no | — | Project name. Required when scope is `project` or `persona`. |
-| `persona` | string | no | — | Agent persona name. Required when scope is `persona`. |
-| `type` | string | no | `"fact"` | Classification: `"fact"`, `"rule"`, `"decision"`, `"feedback"`, `"context"` |
+| `scope` | string | no | `"global"` | Visibility: `"global"` or `"project"` |
+| `project` | string | no | — | Project name. Required when scope is `project`. |
+| `type` | string | no | `"fact"` | Classification: `"fact"`, `"rule"`, `"decision"`, `"feedback"`, `"context"`, `"bootstrap"` |
 | `tags` | string | no | — | Comma-separated tags. E.g. `"frontend, performance"` |
 | `ttl` | string | no | — | Time-to-live duration. E.g. `"24h"`, `"7d"`, `"30d"`. Omit for permanent. |
 | `weight` | number | no | `1.0` | Confidence/priority from 0.1 to 1.0. |
@@ -64,6 +63,10 @@ Stored memory details:
 { ... full JSON ... }
 ```
 
+### Bootstrap Size Warning
+
+When storing a memory with `type="bootstrap"`, the server recomputes the combined bootstrap output for the relevant scope hierarchy. If the result exceeds **10KB** (`MaxBootstrapBytes`), the response is prefixed with a warning. The memory is still stored, but MCP clients may truncate the bootstrap output on the next session start. Remove or shorten some bootstrap memories to stay under the limit.
+
 ### Examples
 
 ```
@@ -72,6 +75,9 @@ remember(content="Never commit .env files", type="rule")
 
 # Project fact
 remember(content="React 19 + Vite + Tailwind", scope="project", project="match", type="fact")
+
+# Bootstrap directive loaded at session start
+remember(content="Always respond in Russian", type="bootstrap", scope="global")
 
 # Temporary context with TTL
 remember(content="Demo on Friday", scope="project", project="match", type="context", ttl="3d")
@@ -93,7 +99,6 @@ Search memories by semantic similarity. Returns the most relevant memories match
 | `query` | string | **yes** | — | Natural language search query |
 | `scope` | string | no | — | Filter to specific scope. Omit for hierarchical search. |
 | `project` | string | no | — | Project name. Enables hierarchical search (global + project). |
-| `persona` | string | no | — | Persona name. Enables hierarchical search (global + project + persona). |
 | `limit` | number | no | `5` | Maximum results to return |
 
 ### Hierarchical Search Behavior
@@ -103,7 +108,6 @@ Search memories by semantic similarity. Returns the most relevant memories match
 | (none) | global only |
 | `scope="global"` | global only |
 | `project="X"` | global + project:X |
-| `project="X"`, `persona="Y"` | global + project:X + persona:Y/X |
 | `scope="project"` (no project name) | scope=project only |
 
 ### Response
@@ -123,7 +127,7 @@ Array of `{memory, score}` sorted by relevance:
       "created_at": "2025-03-15T10:30:00Z",
       "updated_at": "2025-03-15T10:30:00Z"
     },
-    "score": 0.718
+    "score": 0.897
   },
   {
     "memory": { ... },
@@ -142,9 +146,6 @@ recall(query="database architecture")
 
 # Search within a project (hierarchical: global + project)
 recall(query="state management", project="match")
-
-# Search with persona (hierarchical: global + project + persona)
-recall(query="review criteria", project="match", persona="reviewer")
 
 # Limit results
 recall(query="deployment", limit=3)
@@ -222,10 +223,9 @@ Browse memories with exact metadata filters. No semantic search — returns all 
 
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
-| `scope` | string | no | — | Filter by scope: `"global"`, `"project"`, `"persona"` |
+| `scope` | string | no | — | Filter by scope: `"global"`, `"project"` |
 | `project` | string | no | — | Filter by project name |
-| `persona` | string | no | — | Filter by persona name |
-| `type` | string | no | — | Filter by type: `"fact"`, `"rule"`, `"decision"`, `"feedback"`, `"context"` |
+| `type` | string | no | — | Filter by type: `"fact"`, `"rule"`, `"decision"`, `"feedback"`, `"context"`, `"bootstrap"` |
 | `limit` | number | no | `20` | Maximum results |
 
 ### Response
@@ -255,8 +255,8 @@ list(type="feedback")
 # Project rules
 list(scope="project", project="match", type="rule")
 
-# All memories for a persona
-list(scope="persona", project="match", persona="reviewer")
+# All bootstrap directives
+list(type="bootstrap")
 
 # Recent 5 memories
 list(limit=5)
@@ -266,7 +266,7 @@ list(limit=5)
 
 ## stats
 
-Get memory statistics: total count and breakdown by scope, project, persona, and type.
+Get memory statistics: total count and breakdown by scope, project, and type.
 
 ### Parameters
 
@@ -278,24 +278,20 @@ None.
 {
   "total": 42,
   "by_scope": {
-    "global": 15,
-    "project": 22,
-    "persona": 5
+    "global": 20,
+    "project": 22
   },
   "by_project": {
-    "match": 18,
+    "match": 13,
     "mememory": 9
-  },
-  "by_persona": {
-    "reviewer": 3,
-    "architect": 2
   },
   "by_type": {
     "fact": 12,
     "rule": 10,
     "decision": 8,
     "feedback": 7,
-    "context": 5
+    "context": 3,
+    "bootstrap": 2
   }
 }
 ```
@@ -327,7 +323,7 @@ Get documentation on how to use the memory system. Returns usage guides, tool re
 | `"scopes"` | Scope hierarchy explanation with examples |
 | `"types"` | Memory type taxonomy with examples |
 | `"examples"` | Usage examples for common scenarios |
-| `"best-practices"` | 13 best practices for effective memory usage |
+| `"best-practices"` | Best practices for effective memory usage |
 
 ### Response
 
@@ -354,7 +350,7 @@ In addition to tools, mememory exposes two MCP resources for session bootstrap:
 
 | Resource URI | Description |
 |-------------|-------------|
-| `memory://bootstrap` | Global memories formatted as Markdown |
-| `memory://bootstrap/{project}` | Global + project-scoped memories formatted as Markdown |
+| `mememory://bootstrap` | Global memories with `type=bootstrap`, formatted as Markdown |
+| `mememory://bootstrap/{project}` | Global + project-scoped memories with `type=bootstrap`, formatted as Markdown |
 
-Resources are read-only and return the same output format as the [bootstrap command](/guide/bootstrap#output-format). Client support for MCP resources varies.
+Only memories with `type=bootstrap` are returned. Resources are read-only and return the same output format as the [bootstrap command](/guide/bootstrap#output-format), including the 10KB size limit. Client support for MCP resources varies.

@@ -7,16 +7,15 @@ Store a new memory with semantic embedding.
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `content` | string | yes | — | The text to remember |
-| `scope` | string | no | `global` | `global`, `project`, or `persona` |
-| `project` | string | no | — | Project name (required for project/persona scope) |
-| `persona` | string | no | — | Agent persona (required for persona scope) |
-| `type` | string | no | `fact` | `fact`, `rule`, `decision`, `feedback`, `context` |
+| `scope` | string | no | `global` | `global` or `project` |
+| `project` | string | no | — | Project name (required for project scope) |
+| `type` | string | no | `fact` | `fact`, `rule`, `decision`, `feedback`, `context`, `bootstrap` |
 | `tags` | string | no | — | Comma-separated tags |
 | `ttl` | string | no | — | Auto-expire duration: `24h`, `7d`, `30d` |
 | `weight` | number | no | 1.0 | Priority 0.1–1.0 |
 | `supersedes` | string | no | — | UUID of memory this replaces |
 
-Returns the stored memory. Warns if contradictions detected (similarity > 75%).
+Returns the stored memory. Warns if contradictions detected (similarity > 75%). When storing a `bootstrap`-type memory, also warns if the total bootstrap output would exceed 10KB.
 
 ## recall
 
@@ -27,13 +26,11 @@ Semantic search with hierarchical scope inheritance.
 | `query` | string | yes | — | Natural language search query |
 | `scope` | string | no | — | Filter by scope (omit for hierarchical search) |
 | `project` | string | no | — | Enable project-level search |
-| `persona` | string | no | — | Enable persona-level search |
 | `limit` | number | no | 5 | Max results |
 
 Returns scored results. Score = similarity x scope_weight x memory_weight x temporal_decay.
 
 Hierarchical behavior:
-- `recall(query, project="X", persona="Y")` searches global + project:X + persona:Y
 - `recall(query, project="X")` searches global + project:X
 - `recall(query)` searches global only
 
@@ -62,7 +59,6 @@ Browse memories with exact filters. No semantic search — returns all matching 
 |-----------|------|----------|---------|-------------|
 | `scope` | string | no | — | Filter by scope |
 | `project` | string | no | — | Filter by project |
-| `persona` | string | no | — | Filter by persona |
 | `type` | string | no | — | Filter by type |
 | `limit` | number | no | 20 | Max results |
 
@@ -70,7 +66,7 @@ Browse memories with exact filters. No semantic search — returns all matching 
 
 Memory count breakdown. No parameters.
 
-Returns: `{total, by_scope, by_project, by_persona, by_type}`
+Returns: `{total, by_scope, by_project, by_type}`
 
 ## help
 
@@ -80,8 +76,10 @@ Usage documentation. Optional `topic` parameter: `overview`, `tools`, `scopes`, 
 
 | URI | Description |
 |-----|-------------|
-| `memory://bootstrap` | All global memories, grouped by type. Loaded at session start. |
-| `memory://bootstrap/{project}` | Global + project-scoped memories for a specific project. |
+| `mememory://bootstrap` | Global memories with `type=bootstrap`. Loaded at session start. |
+| `mememory://bootstrap/{project}` | Global + project-scoped `bootstrap` memories for a specific project. |
+
+Only memories with `type=bootstrap` are returned by these resources. All other types must be retrieved with `recall`.
 
 ## Admin API
 

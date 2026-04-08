@@ -9,12 +9,12 @@ mememory is a Go monorepo with three binaries, a React admin UI, and a Docker-ba
                 ┌─────────────────────┐          ┌──────────────────────────┐
                 │                     │          │                          │
 User ────────── │   mememory CLI      │──HTTP──> │   Admin API (:4200)      │
-                │   (bootstrap,       │          │   memory-admin           │
+                │   (bootstrap,       │          │   mememory-admin           │
                 │    status)          │          │      │                   │
                 │                     │          │      ├── REST endpoints  │
                 └─────────────────────┘          │      └── Web UI (React) │
                                                  │            │             │
-Agent ──stdio── │   memory-server     │──────────│────────────┤             │
+Agent ──stdio── │   mememory-server     │──────────│────────────┤             │
                 │   (inside Docker)   │          │            │             │
                 │                     │          │            ▼             │
                 └─────────────────────┘          │   ┌──────────────┐      │
@@ -32,20 +32,20 @@ Agent ──stdio── │   memory-server     │─────────�
 
 ## Components
 
-### memory-server
+### mememory-server
 
 The MCP server binary. Communicates with agents via stdio (stdin/stdout). Registers 7 MCP tools and 2 MCP resources. Runs inside the `mememory-admin` Docker container.
 
-- Entry point: `cmd/memory-server/main.go`
+- Entry point: `cmd/mememory-server/main.go`
 - Also supports `--bootstrap` mode for CLI-based session initialization
 - Runs a background TTL cleanup goroutine (hourly)
 - On startup: connects to PostgreSQL, runs migrations, probes embedding dimension, validates database column
 
-### memory-admin
+### mememory-admin
 
 The Admin API and web UI server. Serves REST endpoints on port 4200 and the React admin UI as static files.
 
-- Entry point: `cmd/memory-admin/main.go`
+- Entry point: `cmd/mememory-admin/main.go`
 - REST API: `internal/api/router.go`, `internal/api/handler.go`
 - Static file serving: embedded React build from `web/dist/`
 
@@ -62,7 +62,7 @@ Native Go binary for host-side operations. Does not connect to PostgreSQL or Oll
 Stores all memories with their vector embeddings. Uses the HNSW index for approximate nearest neighbor search with cosine distance.
 
 - Docker image: `pgvector/pgvector:pg17`
-- Data persisted to `~/.mememory/postgres/`
+- Data persisted to `$DATA_DIR/postgres/` (CLI auto-resolves `DATA_DIR` to an OS-standard path)
 - Schema managed via embedded SQL migrations
 - Cosine distance operator: `<=>` (lower = more similar)
 
@@ -71,7 +71,7 @@ Stores all memories with their vector embeddings. Uses the HNSW index for approx
 Runs local embedding models. The default model is `nomic-embed-text` (768 dimensions). No data leaves the machine.
 
 - Docker image: custom build that pulls the model on start
-- Data persisted to `~/.mememory/ollama/`
+- Data persisted to `$DATA_DIR/ollama/`
 - HTTP API at port 11434
 
 ### React Admin UI
@@ -80,16 +80,16 @@ Single-page application for browsing and managing memories. Built with React + T
 
 - Source: `web/`
 - Communicates with Admin API endpoints
-- Served as static files by `memory-admin`
+- Served as static files by `mememory-admin`
 
 ## Directory Structure
 
 ```
 mememory/
 ├── cmd/
-│   ├── memory-server/       # MCP server binary (stdio + bootstrap mode)
+│   ├── mememory-server/       # MCP server binary (stdio + bootstrap mode)
 │   │   └── main.go
-│   ├── memory-admin/        # Admin API + web UI server
+│   ├── mememory-admin/        # Admin API + web UI server
 │   │   └── main.go
 │   └── mememory/            # Native CLI (bootstrap, status, version)
 │       ├── main.go
@@ -110,7 +110,7 @@ mememory/
 │   ├── mcp/                 # MCP server registration
 │   │   ├── tools.go         # 7 MCP tools + help text
 │   │   └── resources.go     # MCP resources (bootstrap)
-│   ├── memory/              # Business logic layer
+│   ├── engine/              # Business logic layer
 │   │   ├── service.go       # Scoring, contradiction detection, CRUD
 │   │   └── types.go         # Type re-exports
 │   ├── postgres/            # PostgreSQL client
@@ -158,7 +158,7 @@ Agent calls recall(query="database architecture", project="match")
     ↓
 Embedder.EmbedOne(query) → query vector
     ↓
-HierarchicalWhere("", "match", "") → WHERE (scope='global' OR (scope='project' AND project='match'))
+HierarchicalWhere("", "match") → WHERE (scope='global' OR (scope='project' AND project='match'))
     ↓
 PostgreSQL: SELECT *, 1-(embedding <=> query_vector) AS score ... ORDER BY distance LIMIT 15
     ↓
@@ -180,12 +180,14 @@ mememory bootstrap --project match
     ↓
 Auto-detect project from git root (if --project not set)
     ↓
-HTTP GET /api/memories?scope=global&limit=100 → global memories
-HTTP GET /api/memories?scope=project&project=match&limit=100 → project memories
+HTTP GET /api/memories?scope=global&type=bootstrap&limit=100 → global bootstrap memories
+HTTP GET /api/memories?scope=project&project=match&type=bootstrap&limit=100 → project bootstrap memories
     ↓
 Merge results
     ↓
-Format as Markdown, grouped by type: Rules > Feedback > Facts > Decisions > Context
+Format as Markdown with a hard-coded System section, then Bootstrap/Rules/Feedback/Facts/Decisions/Context groups
+    ↓
+If output exceeds MaxBootstrapBytes (10KB) → warning on stderr
     ↓
 Print to stdout → captured by SessionStart hook → injected into agent context
 ```

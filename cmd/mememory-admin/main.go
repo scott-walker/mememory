@@ -11,23 +11,25 @@ import (
 
 	"github.com/scott-walker/mememory/internal/api"
 	"github.com/scott-walker/mememory/internal/embeddings"
-	"github.com/scott-walker/mememory/internal/memory"
+	"github.com/scott-walker/mememory/internal/engine"
 	pg "github.com/scott-walker/mememory/internal/postgres"
 )
 
 const (
-	defaultPort        = 4200
-	defaultDatabaseURL = "postgres://memory:memory@localhost:5432/memory?sslmode=disable"
-	defaultOllamaURL   = "http://localhost:11434"
-	defaultStaticDir   = "web/dist"
+	defaultPort      = 4200
+	defaultOllamaURL = "http://localhost:11434"
+	defaultStaticDir = "web/dist"
 )
 
 func main() {
-	logger := log.New(os.Stderr, "[memory-admin] ", log.LstdFlags)
+	logger := log.New(os.Stderr, "[mememory-admin] ", log.LstdFlags)
 
 	port := envIntOrDefault("ADMIN_PORT", defaultPort)
 	staticDir := envOrDefault("STATIC_DIR", defaultStaticDir)
-	databaseURL := envOrDefault("DATABASE_URL", defaultDatabaseURL)
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		logger.Fatal("DATABASE_URL is required. Set it in your .env or run `mememory setup` to bootstrap with the bundled Docker stack.")
+	}
 	ollamaURL := envOrDefault("OLLAMA_URL", defaultOllamaURL)
 
 	logger.Println("Connecting to PostgreSQL")
@@ -70,7 +72,7 @@ func main() {
 		logger.Fatalf("Embedding dimension check failed: %v", err)
 	}
 
-	svc := memory.NewService(pgClient, embedder)
+	svc := engine.NewService(pgClient, embedder)
 
 	router := api.NewRouter(svc)
 

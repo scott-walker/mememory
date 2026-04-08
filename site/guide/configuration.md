@@ -8,9 +8,9 @@ These variables are used in `docker/docker-compose.yml` and control the Docker i
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MEMORY_DATA_DIR` | `~/.mememory` | Host directory for persistent data (PostgreSQL data, Ollama models) |
+| `DATA_DIR` | OS-standard path (auto-resolved by CLI) | Host directory for persistent data (PostgreSQL data, Ollama models). Bind-mounted into containers. |
 | `POSTGRES_PORT` | `5432` | Host port for PostgreSQL |
-| `POSTGRES_PASSWORD` | `memory` | PostgreSQL password for the `memory` user |
+| `POSTGRES_PASSWORD` | `mememory` | PostgreSQL password for the `mememory` user |
 | `OLLAMA_PORT` | `11434` | Host port for the Ollama API |
 | `ADMIN_PORT` | `4200` | Host port for the Admin API and web UI |
 
@@ -18,7 +18,7 @@ These variables are used in `docker/docker-compose.yml` and control the Docker i
 
 ```bash
 # .env file in the project root
-MEMORY_DATA_DIR=/data/mememory
+DATA_DIR=/data/mememory
 POSTGRES_PORT=15432
 POSTGRES_PASSWORD=s3cret
 OLLAMA_PORT=21434
@@ -28,22 +28,30 @@ ADMIN_PORT=9200
 ### Data directory structure
 
 ```
-~/.mememory/
+$DATA_DIR/
 ├── postgres/       # PostgreSQL data files
 └── ollama/         # Ollama model files (nomic-embed-text, etc.)
 ```
 
+If `DATA_DIR` is unset, the `mememory` CLI auto-resolves it:
+
+| Platform | Default |
+|----------|---------|
+| Linux    | `~/.local/share/mememory` (or `$XDG_DATA_HOME/mememory`) |
+| macOS    | `~/Library/Application Support/mememory` |
+| Windows  | `%LOCALAPPDATA%\mememory` |
+
 ::: warning
-Changing `MEMORY_DATA_DIR` after initial setup means the new directory starts empty. Move the existing data or use [backup/restore](/guide/backup) to migrate.
+Changing `DATA_DIR` after initial setup means the new directory starts empty. Move the existing data or use [backup/restore](/guide/backup) to migrate.
 :::
 
 ## Server Variables
 
-These variables configure the `memory-server` (MCP server) and `memory-admin` (Admin API) processes:
+These variables configure the `mememory-server` (MCP server) and `mememory-admin` (Admin API) processes:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATABASE_URL` | `postgres://memory:memory@localhost:5432/memory?sslmode=disable` | PostgreSQL connection string |
+| `DATABASE_URL` | _required, no default_ | PostgreSQL connection string. The server fails fast on missing value. Example: `postgres://mememory:mememory@localhost:5432/mememory?sslmode=disable`. Requires PostgreSQL >= 14 with the `pgvector` extension. |
 | `OLLAMA_URL` | `http://localhost:11434` | Ollama API URL (used when `EMBEDDING_PROVIDER` is `ollama` or unset) |
 | `ADMIN_PORT` | `4200` | Port for the Admin API server |
 | `EMBEDDING_PROVIDER` | `ollama` | Embedding provider: `ollama` or `openai` |
@@ -56,12 +64,14 @@ These variables configure the `memory-server` (MCP server) and `memory-admin` (A
 Standard PostgreSQL connection string. The database must have the `vector` extension enabled (included in the `pgvector/pgvector:pg17` Docker image).
 
 ```bash
-# Local Docker (default)
-DATABASE_URL=postgres://memory:memory@localhost:5432/memory?sslmode=disable
+# Bundled Docker stack
+DATABASE_URL=postgres://mememory:mememory@localhost:5432/mememory?sslmode=disable
 
-# Remote server
-DATABASE_URL=postgres://user:pass@db.example.com:5432/memory?sslmode=require
+# Remote server (BYO Postgres)
+DATABASE_URL=postgres://user:pass@db.example.com:5432/mememory?sslmode=require
 ```
+
+The connecting user needs `CREATE` privilege so the server can run `CREATE EXTENSION IF NOT EXISTS vector` on first start. Otherwise have your DBA install pgvector beforehand.
 
 ### Embedding Provider Configuration
 
@@ -119,7 +129,7 @@ A full `.env` file for a custom setup:
 
 ```bash
 # Data storage
-MEMORY_DATA_DIR=/opt/mememory/data
+DATA_DIR=/opt/mememory/data
 
 # Ports
 POSTGRES_PORT=5432
@@ -161,4 +171,4 @@ This merges with the base `docker-compose.yml` when running `docker compose up`.
 2. Environment variables override defaults
 3. Default values are used when nothing else is set
 
-Inside Docker, the `docker-compose.yml` sets internal service URLs (e.g., `DATABASE_URL=postgres://memory:memory@postgres:5432/memory`) that override the defaults designed for host-machine development.
+Inside Docker, the `docker-compose.yml` sets internal service URLs (e.g., `DATABASE_URL=postgres://mememory:mememory@postgres:5432/mememory`) for container-to-container communication.

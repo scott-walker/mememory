@@ -31,4 +31,4 @@ ARGS="--bootstrap"
 [ -n "${MEMORY_PERSONA:-}" ] && ARGS="$ARGS --persona $MEMORY_PERSONA"
 
 # shellcheck disable=SC2086
-docker exec "$CONTAINER" memory-server $ARGS
+docker exec "$CONTAINER" mememory-server $ARGS

@@ -35,7 +35,7 @@ If any check fails — STOP and report.
         - **patch** (0.0.X) if ALL changes are: bug fixes, documentation updates, internal refactors, dependency updates, CI/CD changes, branding fixes, performance improvements
      d. Present the detected version to the user with reasoning before proceeding
 2. Update the `Version` default in `cmd/mememory/main.go`
-3. Update the version in `cmd/memory-server/main.go` (the `server.NewMCPServer("mememory", "X.Y.Z", ...)` call)
+3. Update the version in `cmd/mememory-server/main.go` (the `server.NewMCPServer("mememory", "X.Y.Z", ...)` call)
 4. Update CHANGELOG.md:
    - Add a section for the new version with today's date
    - List changes from `git log --oneline $(git describe --tags --abbrev=0)..HEAD`

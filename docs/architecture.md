@@ -5,7 +5,7 @@
 MEMEMORY is an MCP (Model Context Protocol) server that gives AI agents persistent semantic memory. Agents connect via stdio, store and retrieve memories through vector similarity search, and receive accumulated knowledge at the start of each session.
 
 ```
-Agent (Claude Code) ──stdio──> memory-server (Go)
+Agent (Claude Code) ──stdio──> mememory-server (Go)
                                     │
                             ┌───────┴───────┐
                             ▼               ▼
@@ -23,7 +23,7 @@ The server runs as a Docker stack: PostgreSQL with pgvector for storage and sear
 
 **One command to run.** `docker compose up` starts the entire stack — database, embedding model, admin UI. No manual setup steps, no external dependencies.
 
-**Portable data.** All persistent state lives in a single directory (`~/.mememory` by default) as bind mounts. Backup is copying a folder. Migration is moving a folder.
+**Portable data.** All persistent state lives in a single directory (auto-resolved by the CLI per OS, override with `DATA_DIR`) as bind mounts. Backup is copying a folder. Migration is moving a folder. No Docker named volumes are used for user data.
 
 ## Stack
 
@@ -51,7 +51,7 @@ Why PostgreSQL instead of a dedicated vector DB: one database handles both vecto
 ### Retrieving memories (recall)
 
 ```
-1. Agent calls recall(query, project?, persona?)
+1. Agent calls recall(query, project?)
 2. Server sends query to Ollama → gets 768d embedding vector
 3. PostgreSQL performs cosine similarity search with hierarchical scope filter
 4. Server post-processes: filters expired/superseded, applies scoring formula
@@ -62,28 +62,27 @@ Why PostgreSQL instead of a dedicated vector DB: one database handles both vecto
 
 ```
 1. Claude Code starts a new session
-2. SessionStart hook runs: `docker exec mememory-admin memory-server --bootstrap --project myapp`
-3. memory-server connects to PostgreSQL, reads global + project-scoped memories
-4. Formats them as Markdown (rules > feedback > facts > decisions > context)
+2. SessionStart hook runs: `docker exec mememory-admin mememory-server --bootstrap --project myapp`
+3. mememory-server connects to PostgreSQL, reads global + project-scoped memories with `type=bootstrap`
+4. Formats them as Markdown (with a hard-coded System section followed by Bootstrap > Rules > Feedback > Facts > Decisions > Context)
 5. Prints to stdout — hook injects output into the agent's context
-6. Agent receives rules and principles from the first message — no explicit recall needed
+6. Agent receives essential directives from the first message; everything else is loaded on demand via `recall`
 ```
 
-The `--bootstrap` flag is a CLI mode of the same binary. It connects directly to PostgreSQL (no Ollama needed), reads memories, prints Markdown, and exits.
+The `--bootstrap` flag is a CLI mode of the same binary. It connects directly to PostgreSQL (no Ollama needed), reads memories with `type=bootstrap`, prints Markdown, and exits. Output is capped at 10KB (`MaxBootstrapBytes`); above that, a warning is printed to stderr because MCP clients may truncate hook output.
 
 Flags:
-- `--project <name>` — include project-scoped memories (hierarchical: global + project)
-- `--persona <name>` — include persona-scoped memories (requires `--project`)
+- `--project <name>` — include project-scoped bootstrap memories (hierarchical: global + project)
 
 ## Directory Structure
 
 ```
 cmd/
-  memory-server/    MCP server entry point (stdio transport)
-  memory-admin/     Admin API + web UI entry point (HTTP :4200)
+  mememory-server/    MCP server entry point (stdio transport)
+  mememory-admin/     Admin API + web UI entry point (HTTP :4200)
 internal/
   mcp/              MCP tool and resource definitions
-  memory/           Business logic, scoring, type re-exports
+  engine/           Business logic, scoring, type re-exports
   postgres/         PostgreSQL client, migrations, filters
   embeddings/       Ollama HTTP client
   api/              REST API for admin UI

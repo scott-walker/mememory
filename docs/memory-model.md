@@ -9,10 +9,9 @@ Memory {
   id          UUID
   content     text          — the knowledge itself
   embedding   vector(768)   — computed by Ollama (nomic-embed-text)
-  scope       enum          — global | project | persona
-  project     text?         — project name (for project/persona scope)
-  persona     text?         — agent persona name (for persona scope)
-  type        enum          — fact | rule | decision | feedback | context
+  scope       enum          — global | project
+  project     text?         — project name (for project scope)
+  type        enum          — fact | rule | decision | feedback | context | bootstrap
   tags        text[]        — free-form labels for filtering
   weight      float 0.1-1.0 — priority/confidence (default 1.0)
   supersedes  UUID?         — ID of memory this one replaces
@@ -24,46 +23,41 @@ Memory {
 
 ## Scopes and Hierarchy
 
-Scopes control who sees what. They form a hierarchy — higher scopes inherit lower:
+Scopes control who sees what. They form a hierarchy — project inherits global:
 
 ```
 ┌─────────────────────────────────────────────┐
 │  global                                      │
-│  Visible to all projects, all personas       │
+│  Visible to all projects                     │
 │                                              │
 │  ┌────────────────────────────────────────┐  │
 │  │  project: "match"                      │  │
 │  │  Visible only within project "match"   │  │
-│  │                                        │  │
-│  │  ┌─────────────────────────────────┐   │  │
-│  │  │  persona: "architect"           │   │  │
-│  │  │  Visible only to this persona   │   │  │
-│  │  └─────────────────────────────────┘   │  │
 │  └────────────────────────────────────────┘  │
 └─────────────────────────────────────────────┘
 ```
 
-When an agent recalls memories with `project="match"` and `persona="architect"`, the search covers all three levels. Project-scoped results automatically outrank global ones through scope weighting.
+When an agent recalls memories with `project="match"`, the search covers both levels. Project-scoped results automatically outrank global ones through scope weighting.
 
 **SQL filter for hierarchical search:**
 
 ```sql
 WHERE (scope = 'global')
    OR (scope = 'project' AND project = 'match')
-   OR (scope = 'persona' AND persona = 'architect' AND project = 'match')
 ```
 
 ## Memory Types
 
-Types classify the nature of knowledge. They affect bootstrap ordering (rules load first) and help agents decide how to act on a memory.
+Types classify the nature of knowledge. Only memories with `type=bootstrap` are automatically loaded at session start — all other types must be retrieved on demand through `recall`.
 
 | Type | Purpose | Example |
 |------|---------|---------|
-| `rule` | Imperative — must be followed | "Never add Co-Authored-By to commits" |
-| `feedback` | Correction to agent behavior | "User prefers terse responses, no summaries" |
 | `fact` | Objective information | "User's name is Scott" |
+| `rule` | Imperative — must be followed | "Never add Co-Authored-By to commits" |
 | `decision` | A choice with reasoning | "Chose pgvector over Qdrant for simpler infrastructure" |
+| `feedback` | Correction to agent behavior | "User prefers terse responses, no summaries" |
 | `context` | Temporal/situational info | "Code freeze starts March 5" (use with TTL) |
+| `bootstrap` | Essential directives loaded at session start | "Always respond in Russian" |
 
 ## Recall Scoring
 
@@ -87,9 +81,8 @@ More specific scopes score higher — a project rule outranks a global rule for 
 
 | Scope | Weight |
 |-------|--------|
-| persona | 1.0 |
-| project | 0.8 |
-| global | 0.6 |
+| project | 1.0 |
+| global | 0.8 |
 
 ### Memory Weight
 
@@ -158,14 +151,15 @@ Memories are not immutable. Knowledge changes over time:
 
 ## Session Bootstrap
 
-At the start of every session, a Claude Code `SessionStart` hook runs `memory-server --bootstrap`. This reads all global memories from PostgreSQL, formats them as Markdown, and prints to stdout. The hook injects this output into the agent's context automatically.
+At the start of every session, a Claude Code `SessionStart` hook runs `mememory bootstrap` (or `mememory-server --bootstrap`). This reads memories with `type=bootstrap` from PostgreSQL, formats them as Markdown, and prints to stdout. The hook injects this output into the agent's context automatically.
 
-- Rules and feedback are in the agent's context from the first message
-- No explicit `recall` needed for base principles
-- New rules take effect in the next session automatically
-- No size limits — hook output is not truncated like MCP `instructions`
+- Only `bootstrap`-type memories are delivered at session start — other types are loaded on demand via `recall`
+- New bootstrap rules take effect in the next session automatically
+- Output is capped at **10KB** (`MaxBootstrapBytes`). If exceeded, a warning is printed and the CLI keeps the output — but MCP clients may truncate it
 
-Bootstrap groups memories by type in priority order: **Rules > Feedback > Facts > Decisions > Context**.
+Bootstrap groups memories by type in priority order: **Bootstrap > Rules > Feedback > Facts > Decisions > Context**. Since only bootstrap-type memories are loaded, the other sections are empty in the default flow but remain available when the Format helper is used by other callers.
+
+The output always starts with a hard-coded `## System` section containing two directives: use the `mememory` MCP server as the only persistent memory source, and always call `recall` on the user's first message to pull in the rest of the context.
 
 Configure the hook in Claude Code settings (`settings.json`):
 
@@ -178,7 +172,7 @@ Configure the hook in Claude Code settings (`settings.json`):
         "hooks": [
           {
             "type": "command",
-            "command": "docker exec mememory-admin memory-server --bootstrap"
+            "command": "docker exec mememory-admin mememory-server --bootstrap"
           }
         ]
       }

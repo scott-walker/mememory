@@ -27,11 +27,11 @@ Next session — everything is remembered
 ## Key Features
 
 - **Semantic search** — recall by meaning, not keywords
-- **Hierarchical scopes** — global rules, project-specific context, persona-level behavior
+- **Hierarchical scopes** — global rules and project-specific context, with project inheriting global
 - **Contradiction detection** — warns when new memories conflict with existing ones
 - **Belief evolution** — supersede old knowledge without losing history
 - **Auto-expiry** — TTL for temporary context (sprint goals, deadlines)
-- **Session bootstrap** — rules loaded automatically at session start
+- **Session bootstrap** — `bootstrap`-type memories loaded automatically at session start
 - **Pluggable embeddings** — Ollama (local), OpenAI, or any compatible provider
 - **Privacy first** — all data stays on your machine
 

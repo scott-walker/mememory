@@ -26,9 +26,9 @@ builds:
       - goos: windows
         goarch: arm64
 
-  - id: memory-server
-    main: ./cmd/memory-server
-    binary: memory-server
+  - id: mememory-server
+    main: ./cmd/mememory-server
+    binary: mememory-server
     env:
       - CGO_ENABLED=0
     ldflags:
@@ -52,12 +52,12 @@ archives:
     name_template: >-
       {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
 
-  - id: memory-server-archives
+  - id: mememory-server-archives
     builds:
-      - memory-server
+      - mememory-server
     format: tar.gz
     name_template: >-
-      memory-server_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+      mememory-server_{{ .Version }}_{{ .Os }}_{{ .Arch }}
 
 checksum:
   name_template: checksums.txt

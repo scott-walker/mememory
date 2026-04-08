@@ -1,12 +1,12 @@
 # Scopes & Hierarchy
 
-Scopes control which memories are visible to which projects and agents. mememory uses a three-level hierarchy that enables knowledge sharing while preserving specificity.
+Scopes control which memories are visible to which projects. mememory uses a two-level hierarchy that enables knowledge sharing while preserving specificity.
 
-## The Three Scopes
+## The Two Scopes
 
 ### global
 
-Visible to **all projects** and **all personas**. Use for universal knowledge.
+Visible to **all projects**. Use for universal knowledge.
 
 | Good for | Examples |
 |----------|----------|
@@ -43,29 +43,9 @@ remember(
 )
 ```
 
-### persona
-
-Visible only to a **named agent persona** within a **named project**. Requires both `project` and `persona` parameters.
-
-| Good for | Examples |
-|----------|----------|
-| Agent behavior | "When reviewing, check for inline styles" |
-| Coding style | "Prefer functional components over class" |
-| Review criteria | "Verify all colors use CSS variables" |
-
-```
-remember(
-  content="When reviewing: verify no inline styles, all colors via CSS variables, no hardcoded hex values",
-  type="rule",
-  scope="persona",
-  project="match",
-  persona="reviewer"
-)
-```
-
 ## Hierarchical Search
 
-The key feature of scopes is **hierarchical inheritance** during recall. More specific scopes automatically include less specific ones.
+The key feature of scopes is **hierarchical inheritance** during recall. Project scope automatically includes global.
 
 ### How it works
 
@@ -75,9 +55,6 @@ recall(query="database architecture")
 
 recall(query="database architecture", project="match")
 → searches: global + project:match
-
-recall(query="database architecture", project="match", persona="architect")
-→ searches: global + project:match + persona:architect/match
 ```
 
 ### Visual diagram
@@ -92,17 +69,6 @@ recall(query="database architecture", project="match", persona="architect")
 │  │          project: match               │   │
 │  │  "Uses SQLite with better-sqlite3"    │   │
 │  │  "React 19 + Vite + Tailwind"         │   │
-│  │                                       │   │
-│  │  ┌───────────────────────────────┐    │   │
-│  │  │   persona: reviewer/match     │    │   │
-│  │  │  "Check for inline styles"    │    │   │
-│  │  │  "Verify CSS variables"       │    │   │
-│  │  └───────────────────────────────┘    │   │
-│  │                                       │   │
-│  │  ┌───────────────────────────────┐    │   │
-│  │  │   persona: architect/match    │    │   │
-│  │  │  "Prefer config-driven patterns"│  │   │
-│  │  └───────────────────────────────┘    │   │
 │  └───────────────────────────────────────┘   │
 │                                              │
 │  ┌───────────────────────────────────────┐   │
@@ -113,26 +79,25 @@ recall(query="database architecture", project="match", persona="architect")
 └─────────────────────────────────────────────┘
 ```
 
-When an agent in the `reviewer` persona queries for project `match`, it sees all three layers. An agent in project `mememory` only sees global + mememory-scoped memories.
+When an agent works within project `match`, it sees global + match memories. An agent in project `mememory` sees global + mememory memories. Neither sees the other's project-scoped content.
 
 ## SQL Filter Implementation
 
 Under the hood, hierarchical search generates an OR-based WHERE clause:
 
 ```sql
--- recall(project="match", persona="architect")
+-- recall(project="match")
 SELECT *, 1 - (embedding <=> $1) AS score
 FROM memories
 WHERE (
     scope = 'global'
     OR (scope = 'project' AND project = 'match')
-    OR (scope = 'persona' AND persona = 'architect' AND project = 'match')
 )
 ORDER BY embedding <=> $1
 LIMIT 15
 ```
 
-This single query searches all three scope levels simultaneously, ranked by vector similarity.
+This single query searches both scope levels simultaneously, ranked by vector similarity.
 
 ## Scope Weights
 
@@ -140,11 +105,10 @@ After retrieval, each result's similarity score is multiplied by a scope weight 
 
 | Scope | Weight | Rationale |
 |-------|--------|-----------|
-| persona | 1.0 | Most specific — highest priority |
-| project | 0.8 | Project-relevant — high priority |
-| global | 0.6 | Universal — lower priority |
+| project | 1.0 | Most specific — highest priority |
+| global | 0.8 | Universal — slight penalty in favor of local knowledge |
 
-This means a project-level memory with 90% similarity scores higher than a global memory with 95% similarity. Specific knowledge outranks general knowledge.
+This means a project-level memory with 85% similarity can outrank a global memory with 95% similarity. Specific knowledge outranks general knowledge.
 
 The full scoring formula is:
 
@@ -180,7 +144,6 @@ The supersede mechanism combined with scope weights ensures the project-specific
 |----------|-------|
 | Would this apply in ANY project? | `global` |
 | Only in THIS project? | `project` |
-| Only for THIS type of agent/role? | `persona` |
 
 ::: warning
 Avoid over-scoping. If a rule applies globally, store it as global. Do not duplicate the same memory across multiple projects.

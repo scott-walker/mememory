@@ -1,6 +1,6 @@
 # Admin API Reference
 
-The Admin API is a REST API served by `memory-admin` on port 4200 (configurable via `ADMIN_PORT`). It provides CRUD operations for memories, search, export/import, and statistics.
+The Admin API is a REST API served by `mememory-admin` on port 4200 (configurable via `ADMIN_PORT`). It provides CRUD operations for memories, search, export/import, and statistics.
 
 Base URL: `http://localhost:4200`
 
@@ -46,21 +46,20 @@ curl http://localhost:4200/api/stats
 {
   "total": 42,
   "by_scope": {
-    "global": 15,
-    "project": 22,
-    "persona": 5
+    "global": 20,
+    "project": 22
   },
   "by_project": {
-    "match": 18,
+    "match": 13,
     "mememory": 9
   },
-  "by_persona": {},
   "by_type": {
     "fact": 12,
     "rule": 10,
     "decision": 8,
     "feedback": 7,
-    "context": 5
+    "context": 3,
+    "bootstrap": 2
   }
 }
 ```
@@ -75,10 +74,9 @@ List memories with optional filters.
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `scope` | string | — | Filter by scope: `global`, `project`, `persona` |
+| `scope` | string | — | Filter by scope: `global`, `project` |
 | `project` | string | — | Filter by project name |
-| `persona` | string | — | Filter by persona name |
-| `type` | string | — | Filter by type: `fact`, `rule`, `decision`, `feedback`, `context` |
+| `type` | string | — | Filter by type: `fact`, `rule`, `decision`, `feedback`, `context`, `bootstrap` |
 | `limit` | integer | `50` | Maximum results |
 
 ### Request
@@ -166,10 +164,9 @@ Create a new memory. The content is embedded and stored with its vector.
 | Field | Type | Required | Default | Description |
 |-------|------|----------|---------|-------------|
 | `content` | string | **yes** | — | Text to store |
-| `scope` | string | no | `"global"` | `"global"`, `"project"`, `"persona"` |
+| `scope` | string | no | `"global"` | `"global"`, `"project"` |
 | `project` | string | no | — | Project name |
-| `persona` | string | no | — | Persona name |
-| `type` | string | no | `"fact"` | `"fact"`, `"rule"`, `"decision"`, `"feedback"`, `"context"` |
+| `type` | string | no | `"fact"` | `"fact"`, `"rule"`, `"decision"`, `"feedback"`, `"context"`, `"bootstrap"` |
 | `tags` | string[] | no | — | Array of tag strings |
 | `weight` | number | no | `1.0` | 0.1 to 1.0 |
 | `ttl` | string | no | — | Duration string, e.g. `"24h"`, `"7d"` |
@@ -291,7 +288,6 @@ Bulk delete memories matching filter criteria.
 |-----------|------|-------------|
 | `scope` | string | Filter by scope |
 | `project` | string | Filter by project |
-| `persona` | string | Filter by persona |
 | `type` | string | Filter by type |
 
 ### Request
@@ -327,7 +323,6 @@ Semantic search via the Admin API. Same as the `recall` MCP tool but accessible 
   "query": "database architecture",
   "scope": "",
   "project": "mememory",
-  "persona": "",
   "limit": 5
 }
 ```
@@ -337,7 +332,6 @@ Semantic search via the Admin API. Same as the `recall` MCP tool but accessible 
 | `query` | string | **yes** | — | Natural language search query |
 | `scope` | string | no | — | Scope filter |
 | `project` | string | no | — | Project filter (enables hierarchical search) |
-| `persona` | string | no | — | Persona filter |
 | `limit` | integer | no | `5` | Maximum results |
 
 ### Request
