@@ -8,7 +8,7 @@ import { FilterBar } from '../components/FilterBar';
 
 export function MemoryList() {
   const [memories, setMemories] = useState<Memory[]>([]);
-  const [filters, setFilters] = useState({ scope: '', type: '', project: '', persona: '' });
+  const [filters, setFilters] = useState({ scope: '', type: '', delivery: '', project: '', persona: '' });
   const [showForm, setShowForm] = useState(false);
   const [contradictions, setContradictions] = useState<ContradictionMatch[]>([]);
   const [error, setError] = useState('');
@@ -17,6 +17,7 @@ export function MemoryList() {
     const params: Record<string, string> = { limit: '100' };
     if (filters.scope) params.scope = filters.scope;
     if (filters.type) params.type = filters.type;
+    if (filters.delivery) params.delivery = filters.delivery;
     if (filters.project) params.project = filters.project;
     if (filters.persona) params.persona = filters.persona;
 

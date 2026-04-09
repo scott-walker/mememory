@@ -1,4 +1,4 @@
-import type { Scope, MemoryType } from '../types';
+import type { Scope, MemoryType, Delivery } from '../types';
 
 const SCOPE_COLORS: Record<Scope, string> = {
   global: 'bg-scope-global/15 text-scope-global',
@@ -26,6 +26,15 @@ export function TypeBadge({ type }: { type: MemoryType }) {
   return (
     <span className={`inline-block px-2 py-0.5 rounded-md text-xs font-medium ${TYPE_COLORS[type]}`}>
       {type}
+    </span>
+  );
+}
+
+export function DeliveryBadge({ delivery }: { delivery: Delivery }) {
+  if (delivery !== 'bootstrap') return null;
+  return (
+    <span className="inline-block px-2 py-0.5 rounded-md text-xs font-medium bg-amber-500/15 text-amber-600">
+      bootstrap
     </span>
   );
 }

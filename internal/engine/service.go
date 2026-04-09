@@ -38,6 +38,9 @@ func (s *Service) Remember(ctx context.Context, input RememberInput) (*RememberR
 	if input.Type == "" {
 		input.Type = TypeFact
 	}
+	if input.Delivery == "" {
+		input.Delivery = DeliveryOnDemand
+	}
 	if input.Weight <= 0 || input.Weight > 1.0 {
 		input.Weight = 1.0
 	}
@@ -58,6 +61,7 @@ func (s *Service) Remember(ctx context.Context, input RememberInput) (*RememberR
 		Scope:      input.Scope,
 		Project:    input.Project,
 		Type:       input.Type,
+		Delivery:   input.Delivery,
 		Tags:       input.Tags,
 		Weight:     input.Weight,
 		Supersedes: input.Supersedes,
@@ -229,9 +233,10 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]Memory, error) {
 	}
 
 	filter := pg.Filter{
-		Scope:   input.Scope,
-		Project: input.Project,
-		Type:    input.Type,
+		Scope:    input.Scope,
+		Project:  input.Project,
+		Type:     input.Type,
+		Delivery: input.Delivery,
 	}
 
 	memories, err := s.pg.List(ctx, filter, input.Limit)

@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.5.0] - 2026-04-09
+
+This release separates the loading strategy from the semantic type by introducing a new `delivery` dimension (`bootstrap` | `on_demand`). Previously, `type=bootstrap` served double duty as both a semantic category and a loading mechanism, which meant bootstrap memories lost their true type (rule, fact, feedback, etc.). Now any memory type can be marked as `delivery=bootstrap` to be loaded at session start, while retaining its semantic classification.
+
+### Added
+- **`delivery` field** on all memories: `bootstrap` (loaded at session start) or `on_demand` (fetched via recall/list, default). Independent of `type`.
+- **`delivery` parameter** in MCP tools `remember` and `list` for creating and filtering by delivery strategy.
+- **`delivery` filter** in admin HTTP API (`?delivery=bootstrap` on list and bulk-delete endpoints).
+- **`by_delivery` breakdown** in `stats` tool output.
+- **DB migration `003_add_delivery.sql`**: adds `delivery` column with default `on_demand`, auto-migrates existing `type=bootstrap` records to `delivery=bootstrap`, adds index.
+- **`DeliveryBadge` component** in web UI — shows an amber "bootstrap" badge on bootstrap memories.
+- **`delivery` filter and selector** in web UI (FilterBar, MemoryForm).
+- **`.mememory` file reference page** added to VitePress site.
+
+### Changed
+- **Bootstrap loading** now filters by `delivery=bootstrap` instead of `type=bootstrap` — across MCP resources, CLI `mememory bootstrap`, and the `remember` tool's budget check.
+- **Bootstrap output grouping** renders memories by their semantic type (Rules, Facts, Feedback, etc.) instead of a separate "Bootstrap" section.
+- **Help texts** updated: `type` enum no longer includes `bootstrap`; new `delivery` parameter documented in all relevant sections.
+
+### Breaking
+- **`type=bootstrap` no longer controls session-start loading.** After upgrading, existing `type=bootstrap` memories will have `delivery=bootstrap` set by the migration, but their `type` remains `bootstrap` — which is no longer a recognized type in the rendering pipeline. **Action required:** update these memories to a correct semantic type (`rule`, `fact`, `feedback`, etc.) via the admin UI or MCP `update` tool. Until fixed, they will not appear in bootstrap output sections.
+- **`TypeBootstrap` constant removed** from Go API (`internal/types`). External code referencing `types.TypeBootstrap` will fail to compile.
+
 ## [0.4.0] - 2026-04-09
 
 This release introduces the `.mememory` project config file, replaces the byte-based bootstrap limit with a token-based budget, and adds a `## Bootstrap Stats` reporting block to every bootstrap payload. The hook becomes self-sufficient: a single global SessionStart hook (`mememory bootstrap` with no flags) now resolves the canonical project name from a `.mememory` file walked up from `cwd`, eliminating the need for project-local hook configuration.

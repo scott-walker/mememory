@@ -35,11 +35,11 @@ func RegisterResources(srv *server.MCPServer, svc *engine.Service) {
 
 func bootstrapHandler(svc *engine.Service) server.ResourceHandlerFunc {
 	return func(ctx context.Context, req mcpsdk.ReadResourceRequest) ([]mcpsdk.ResourceContents, error) {
-		// Load all global memories — they form the base context for any session
+		// Load all global bootstrap memories — they form the base context for any session
 		memories, err := svc.List(ctx, engine.ListInput{
-			Scope: "global",
-			Type:  "bootstrap",
-			Limit: 50,
+			Scope:    "global",
+			Delivery: "bootstrap",
+			Limit:    50,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("bootstrap: %w", err)
@@ -68,22 +68,22 @@ func projectBootstrapHandler(svc *engine.Service) server.ResourceTemplateHandler
 			return nil, fmt.Errorf("project name required in URI")
 		}
 
-		// Load global memories
+		// Load global bootstrap memories
 		global, err := svc.List(ctx, engine.ListInput{
-			Scope: "global",
-			Type:  "bootstrap",
-			Limit: 50,
+			Scope:    "global",
+			Delivery: "bootstrap",
+			Limit:    50,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("bootstrap global: %w", err)
 		}
 
-		// Load project-scoped memories
+		// Load project-scoped bootstrap memories
 		projectMems, err := svc.List(ctx, engine.ListInput{
-			Scope:   "project",
-			Project: project,
-			Type:    "bootstrap",
-			Limit:   50,
+			Scope:    "project",
+			Project:  project,
+			Delivery: "bootstrap",
+			Limit:    50,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("bootstrap project: %w", err)

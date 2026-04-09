@@ -82,21 +82,22 @@ func (c *Client) RunMigrations(ctx context.Context) error {
 func (c *Client) Upsert(ctx context.Context, id string, embedding []float32, mem *t.Memory) error {
 	vec := pgvector.NewVector(embedding)
 	_, err := c.db.ExecContext(ctx, `
-		INSERT INTO memories (id, content, embedding, scope, project, type, tags, weight, supersedes, created_at, updated_at, ttl)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+		INSERT INTO memories (id, content, embedding, scope, project, type, delivery, tags, weight, supersedes, created_at, updated_at, ttl)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 		ON CONFLICT (id) DO UPDATE SET
 			content = EXCLUDED.content,
 			embedding = EXCLUDED.embedding,
 			scope = EXCLUDED.scope,
 			project = EXCLUDED.project,
 			type = EXCLUDED.type,
+			delivery = EXCLUDED.delivery,
 			tags = EXCLUDED.tags,
 			weight = EXCLUDED.weight,
 			supersedes = EXCLUDED.supersedes,
 			updated_at = EXCLUDED.updated_at,
 			ttl = EXCLUDED.ttl`,
 		id, mem.Content, vec, string(mem.Scope), nilIfEmpty(mem.Project),
-		string(mem.Type), pq.Array(mem.Tags), mem.Weight, nilIfEmpty(mem.Supersedes),
+		string(mem.Type), string(mem.Delivery), pq.Array(mem.Tags), mem.Weight, nilIfEmpty(mem.Supersedes),
 		mem.CreatedAt, mem.UpdatedAt, mem.TTL,
 	)
 	if err != nil {
@@ -111,7 +112,7 @@ func (c *Client) Search(ctx context.Context, embedding []float32, filter Filter,
 	args = append([]interface{}{vec}, args...)
 
 	query := fmt.Sprintf(`
-		SELECT id, content, scope, project, type, tags, weight, supersedes, created_at, updated_at, ttl,
+		SELECT id, content, scope, project, type, delivery, tags, weight, supersedes, created_at, updated_at, ttl,
 			1 - (embedding <=> $1) AS score
 		FROM memories
 		%s
@@ -133,7 +134,7 @@ func (c *Client) SearchWithWhere(ctx context.Context, embedding []float32, where
 	args := append([]interface{}{vec}, whereArgs...)
 
 	query := fmt.Sprintf(`
-		SELECT id, content, scope, project, type, tags, weight, supersedes, created_at, updated_at, ttl,
+		SELECT id, content, scope, project, type, delivery, tags, weight, supersedes, created_at, updated_at, ttl,
 			1 - (embedding <=> $1) AS score
 		FROM memories
 		%s
@@ -151,7 +152,7 @@ func (c *Client) SearchWithWhere(ctx context.Context, embedding []float32, where
 
 func (c *Client) GetByID(ctx context.Context, id string) (*t.Memory, error) {
 	row := c.db.QueryRowContext(ctx, `
-		SELECT id, content, scope, project, type, tags, weight, supersedes, created_at, updated_at, ttl
+		SELECT id, content, scope, project, type, delivery, tags, weight, supersedes, created_at, updated_at, ttl
 		FROM memories WHERE id = $1`, id)
 	mem, err := scanMemory(row)
 	if err == sql.ErrNoRows {
@@ -174,7 +175,7 @@ func (c *Client) Delete(ctx context.Context, id string) error {
 func (c *Client) List(ctx context.Context, filter Filter, limit int) ([]t.Memory, error) {
 	where, args := filter.toWhere(0)
 	query := fmt.Sprintf(`
-		SELECT id, content, scope, project, type, tags, weight, supersedes, created_at, updated_at, ttl
+		SELECT id, content, scope, project, type, delivery, tags, weight, supersedes, created_at, updated_at, ttl
 		FROM memories %s
 		ORDER BY updated_at DESC
 		LIMIT %d`, where, limit)
@@ -205,9 +206,10 @@ func (c *Client) UpdateWeight(ctx context.Context, id string, weight float64) er
 
 func (c *Client) Stats(ctx context.Context) (*t.StatsResult, error) {
 	result := &t.StatsResult{
-		ByScope:   make(map[string]uint64),
-		ByProject: make(map[string]uint64),
-		ByType:    make(map[string]uint64),
+		ByScope:    make(map[string]uint64),
+		ByProject:  make(map[string]uint64),
+		ByType:     make(map[string]uint64),
+		ByDelivery: make(map[string]uint64),
 	}
 
 	// Total
@@ -263,6 +265,22 @@ func (c *Client) Stats(ctx context.Context) (*t.StatsResult, error) {
 	}
 	_ = rows.Close()
 
+	// By delivery
+	rows, err = c.db.QueryContext(ctx, "SELECT delivery, COUNT(*) FROM memories GROUP BY delivery")
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var k string
+		var v uint64
+		if err := rows.Scan(&k, &v); err != nil {
+			_ = rows.Close()
+			return nil, err
+		}
+		result.ByDelivery[k] = v
+	}
+	_ = rows.Close()
+
 	return result, nil
 }
 
@@ -282,9 +300,10 @@ func (c *Client) Close() error {
 // --- Filter ---
 
 type Filter struct {
-	Scope   string
-	Project string
-	Type    string
+	Scope    string
+	Project  string
+	Type     string
+	Delivery string
 }
 
 func (f Filter) toWhere(argOffset int) (string, []interface{}) {
@@ -305,6 +324,11 @@ func (f Filter) toWhere(argOffset int) (string, []interface{}) {
 	if f.Type != "" {
 		conds = append(conds, fmt.Sprintf("type = $%d", idx))
 		args = append(args, f.Type)
+		idx++
+	}
+	if f.Delivery != "" {
+		conds = append(conds, fmt.Sprintf("delivery = $%d", idx))
+		args = append(args, f.Delivery)
 	}
 
 	if len(conds) == 0 {
@@ -343,9 +367,9 @@ func scanMemory(row *sql.Row) (*t.Memory, error) {
 	var m t.Memory
 	var project, supersedes sql.NullString
 	var ttl sql.NullTime
-	var scope, typ string
+	var scope, typ, delivery string
 
-	err := row.Scan(&m.ID, &m.Content, &scope, &project, &typ,
+	err := row.Scan(&m.ID, &m.Content, &scope, &project, &typ, &delivery,
 		pq.Array(&m.Tags), &m.Weight, &supersedes, &m.CreatedAt, &m.UpdatedAt, &ttl)
 	if err != nil {
 		return nil, err
@@ -353,6 +377,7 @@ func scanMemory(row *sql.Row) (*t.Memory, error) {
 
 	m.Scope = t.Scope(scope)
 	m.Type = t.MemoryType(typ)
+	m.Delivery = t.Delivery(delivery)
 	if project.Valid {
 		m.Project = project.String
 	}
@@ -369,9 +394,9 @@ func scanMemoryFromRows(rows *sql.Rows) (*t.Memory, error) {
 	var m t.Memory
 	var project, supersedes sql.NullString
 	var ttl sql.NullTime
-	var scope, typ string
+	var scope, typ, delivery string
 
-	err := rows.Scan(&m.ID, &m.Content, &scope, &project, &typ,
+	err := rows.Scan(&m.ID, &m.Content, &scope, &project, &typ, &delivery,
 		pq.Array(&m.Tags), &m.Weight, &supersedes, &m.CreatedAt, &m.UpdatedAt, &ttl)
 	if err != nil {
 		return nil, err
@@ -379,6 +404,7 @@ func scanMemoryFromRows(rows *sql.Rows) (*t.Memory, error) {
 
 	m.Scope = t.Scope(scope)
 	m.Type = t.MemoryType(typ)
+	m.Delivery = t.Delivery(delivery)
 	if project.Valid {
 		m.Project = project.String
 	}
@@ -397,10 +423,10 @@ func scanResults(rows *sql.Rows) ([]SearchResult, error) {
 		var m t.Memory
 		var project, supersedes sql.NullString
 		var ttl sql.NullTime
-		var scope, typ string
+		var scope, typ, delivery string
 		var score float32
 
-		err := rows.Scan(&m.ID, &m.Content, &scope, &project, &typ,
+		err := rows.Scan(&m.ID, &m.Content, &scope, &project, &typ, &delivery,
 			pq.Array(&m.Tags), &m.Weight, &supersedes, &m.CreatedAt, &m.UpdatedAt, &ttl, &score)
 		if err != nil {
 			return nil, err
@@ -408,6 +434,7 @@ func scanResults(rows *sql.Rows) ([]SearchResult, error) {
 
 		m.Scope = t.Scope(scope)
 		m.Type = t.MemoryType(typ)
+		m.Delivery = t.Delivery(delivery)
 		if project.Valid {
 			m.Project = project.String
 		}

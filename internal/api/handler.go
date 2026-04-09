@@ -30,10 +30,11 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	memories, err := h.svc.List(r.Context(), engine.ListInput{
-		Scope:   q.Get("scope"),
-		Project: q.Get("project"),
-		Type:    q.Get("type"),
-		Limit:   limit,
+		Scope:    q.Get("scope"),
+		Project:  q.Get("project"),
+		Type:     q.Get("type"),
+		Delivery: q.Get("delivery"),
+		Limit:    limit,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -119,10 +120,11 @@ func (h *Handler) BulkDelete(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	// List matching memories, then delete each
 	memories, err := h.svc.List(r.Context(), engine.ListInput{
-		Scope:   q.Get("scope"),
-		Project: q.Get("project"),
-		Type:    q.Get("type"),
-		Limit:   1000,
+		Scope:    q.Get("scope"),
+		Project:  q.Get("project"),
+		Type:     q.Get("type"),
+		Delivery: q.Get("delivery"),
+		Limit:    1000,
 	})
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

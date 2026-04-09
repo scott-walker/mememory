@@ -87,7 +87,6 @@ func renderBody(project ProjectInfo, memories []t.Memory) string {
 		typ   t.MemoryType
 		label string
 	}{
-		{t.TypeBootstrap, "Bootstrap"},
 		{t.TypeRule, "Rules"},
 		{t.TypeFeedback, "Feedback"},
 		{t.TypeFact, "Facts"},

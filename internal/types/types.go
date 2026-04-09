@@ -12,12 +12,18 @@ const (
 type MemoryType string
 
 const (
-	TypeFact      MemoryType = "fact"
-	TypeRule      MemoryType = "rule"
-	TypeDecision  MemoryType = "decision"
-	TypeFeedback  MemoryType = "feedback"
-	TypeContext   MemoryType = "context"
-	TypeBootstrap MemoryType = "bootstrap"
+	TypeFact     MemoryType = "fact"
+	TypeRule     MemoryType = "rule"
+	TypeDecision MemoryType = "decision"
+	TypeFeedback MemoryType = "feedback"
+	TypeContext  MemoryType = "context"
+)
+
+type Delivery string
+
+const (
+	DeliveryBootstrap Delivery = "bootstrap"
+	DeliveryOnDemand  Delivery = "on_demand"
 )
 
 type Memory struct {
@@ -26,6 +32,7 @@ type Memory struct {
 	Scope      Scope      `json:"scope"`
 	Project    string     `json:"project,omitempty"`
 	Type       MemoryType `json:"type"`
+	Delivery   Delivery   `json:"delivery"`
 	Tags       []string   `json:"tags,omitempty"`
 	Weight     float64    `json:"weight"`
 	Supersedes string     `json:"supersedes,omitempty"`
@@ -39,6 +46,7 @@ type RememberInput struct {
 	Scope      Scope      `json:"scope"`
 	Project    string     `json:"project,omitempty"`
 	Type       MemoryType `json:"type"`
+	Delivery   Delivery   `json:"delivery,omitempty"`
 	Tags       []string   `json:"tags,omitempty"`
 	Weight     float64    `json:"weight,omitempty"`
 	Supersedes string     `json:"supersedes,omitempty"`
@@ -70,15 +78,17 @@ type RecallResult struct {
 }
 
 type ListInput struct {
-	Scope   string `json:"scope,omitempty"`
-	Project string `json:"project,omitempty"`
-	Type    string `json:"type,omitempty"`
-	Limit   int    `json:"limit,omitempty"`
+	Scope    string `json:"scope,omitempty"`
+	Project  string `json:"project,omitempty"`
+	Type     string `json:"type,omitempty"`
+	Delivery string `json:"delivery,omitempty"`
+	Limit    int    `json:"limit,omitempty"`
 }
 
 type StatsResult struct {
-	Total     uint64            `json:"total"`
-	ByScope   map[string]uint64 `json:"by_scope"`
-	ByProject map[string]uint64 `json:"by_project"`
-	ByType    map[string]uint64 `json:"by_type"`
+	Total      uint64            `json:"total"`
+	ByScope    map[string]uint64 `json:"by_scope"`
+	ByProject  map[string]uint64 `json:"by_project"`
+	ByType     map[string]uint64 `json:"by_type"`
+	ByDelivery map[string]uint64 `json:"by_delivery"`
 }

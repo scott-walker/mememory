@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import Markdown from 'react-markdown';
 import type { Memory } from '../types';
 import { api } from '../api/client';
-import { ScopeBadge, TypeBadge } from '../components/Badge';
+import { ScopeBadge, TypeBadge, DeliveryBadge } from '../components/Badge';
 
 export function MemoryDetail() {
   const { id } = useParams<{ id: string }>();
@@ -47,6 +47,7 @@ export function MemoryDetail() {
         <div className="flex items-center gap-2 flex-wrap">
           <ScopeBadge scope={memory.scope} />
           <TypeBadge type={memory.type} />
+          <DeliveryBadge delivery={memory.delivery} />
           {memory.project && <span className="text-xs text-text-muted">{memory.project}</span>}
           {memory.persona && <span className="text-xs text-text-muted">/ {memory.persona}</span>}
           {memory.supersedes && (

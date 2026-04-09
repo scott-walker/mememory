@@ -59,6 +59,7 @@ func runBootstrap(args bootstrapArgs) error {
 		projectMems, _ = fetchMemories(client, args.url, "project", project.Name, "bootstrap", 100)
 	}
 
+
 	if len(globalMems) == 0 && len(projectMems) == 0 {
 		return nil
 	}
@@ -73,7 +74,7 @@ func runBootstrap(args bootstrapArgs) error {
 	return nil
 }
 
-func fetchMemories(client *http.Client, baseURL, scope, project, typ string, limit int) ([]t.Memory, error) {
+func fetchMemories(client *http.Client, baseURL, scope, project, delivery string, limit int) ([]t.Memory, error) {
 	u, err := url.Parse(baseURL + "/api/memories/")
 	if err != nil {
 		return nil, err
@@ -85,8 +86,8 @@ func fetchMemories(client *http.Client, baseURL, scope, project, typ string, lim
 	if project != "" {
 		q.Set("project", project)
 	}
-	if typ != "" {
-		q.Set("type", typ)
+	if delivery != "" {
+		q.Set("delivery", delivery)
 	}
 	u.RawQuery = q.Encode()
 

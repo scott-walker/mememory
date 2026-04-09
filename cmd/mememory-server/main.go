@@ -73,12 +73,13 @@ func main() {
 
 	srv := server.NewMCPServer(
 		"mememory",
-		"0.4.0",
+		"0.5.0",
 		server.WithToolCapabilities(true),
 		server.WithResourceCapabilities(true, false),
 		server.WithInstructions("Persistent semantic memory for AI agents. "+
 			"Tools: remember (store), recall (search), forget (delete), update (re-embed), list (browse), stats (counts), help (docs). "+
-			"Supports two scopes (global, project) and memory types (fact, rule, decision, feedback, context, bootstrap)."),
+			"Supports two scopes (global, project) and memory types (fact, rule, decision, feedback, context). "+
+			"Delivery controls loading: bootstrap (session start) or on_demand (via recall/list)."),
 	)
 
 	mcptools.RegisterTools(srv, svc)

@@ -1,5 +1,6 @@
 export type Scope = 'global' | 'project' | 'persona';
 export type MemoryType = 'fact' | 'rule' | 'decision' | 'feedback' | 'context';
+export type Delivery = 'bootstrap' | 'on_demand';
 
 export interface Memory {
   id: string;
@@ -8,6 +9,7 @@ export interface Memory {
   project?: string;
   persona?: string;
   type: MemoryType;
+  delivery: Delivery;
   tags?: string[];
   weight: number;
   supersedes?: string;
@@ -27,6 +29,7 @@ export interface StatsResult {
   by_project: Record<string, number>;
   by_persona: Record<string, number>;
   by_type: Record<string, number>;
+  by_delivery: Record<string, number>;
 }
 
 export interface RememberInput {
@@ -35,6 +38,7 @@ export interface RememberInput {
   project?: string;
   persona?: string;
   type: MemoryType;
+  delivery?: Delivery;
   tags?: string[];
   weight?: number;
   supersedes?: string;

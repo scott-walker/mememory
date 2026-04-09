@@ -1,8 +1,9 @@
-import type { Scope, MemoryType } from '../types';
+import type { Scope, MemoryType, Delivery } from '../types';
 
 interface Filters {
   scope: string;
   type: string;
+  delivery: string;
   project: string;
   persona: string;
 }
@@ -14,6 +15,7 @@ interface FilterBarProps {
 
 const SCOPES: Array<Scope | ''> = ['', 'global', 'project', 'persona'];
 const TYPES: Array<MemoryType | ''> = ['', 'fact', 'rule', 'decision', 'feedback', 'context'];
+const DELIVERIES: Array<Delivery | ''> = ['', 'bootstrap', 'on_demand'];
 
 export function FilterBar({ filters, onChange }: FilterBarProps) {
   const update = (key: keyof Filters, value: string) => {
@@ -33,6 +35,12 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
         value={filters.type}
         options={TYPES}
         onChange={(v) => update('type', v)}
+      />
+      <Select
+        label="Delivery"
+        value={filters.delivery}
+        options={DELIVERIES}
+        onChange={(v) => update('delivery', v)}
       />
       <input
         type="text"

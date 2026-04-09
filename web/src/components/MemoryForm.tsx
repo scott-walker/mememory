@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { RememberInput, Scope, MemoryType } from '../types';
+import type { RememberInput, Scope, MemoryType, Delivery } from '../types';
 
 interface MemoryFormProps {
   onSubmit: (input: RememberInput) => Promise<void>;
@@ -11,6 +11,7 @@ export function MemoryForm({ onSubmit, onCancel, initialContent }: MemoryFormPro
   const [content, setContent] = useState(initialContent ?? '');
   const [scope, setScope] = useState<Scope>('global');
   const [type, setType] = useState<MemoryType>('fact');
+  const [delivery, setDelivery] = useState<Delivery>('on_demand');
   const [project, setProject] = useState('');
   const [persona, setPersona] = useState('');
   const [tags, setTags] = useState('');
@@ -29,6 +30,7 @@ export function MemoryForm({ onSubmit, onCancel, initialContent }: MemoryFormPro
         content: content.trim(),
         scope,
         type,
+        delivery,
         project: project || undefined,
         persona: persona || undefined,
         tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
@@ -78,12 +80,23 @@ export function MemoryForm({ onSubmit, onCancel, initialContent }: MemoryFormPro
         </label>
 
         <label className="space-y-1">
+          <span className="text-xs font-medium text-text-muted">Delivery</span>
+          <select value={delivery} onChange={(e) => setDelivery(e.target.value as Delivery)}
+            className="w-full h-9 px-3 text-sm bg-bg border border-border rounded-[var(--radius-sm)] text-text">
+            <option value="on_demand">on_demand</option>
+            <option value="bootstrap">bootstrap</option>
+          </select>
+        </label>
+
+        <label className="space-y-1">
           <span className="text-xs font-medium text-text-muted">Project</span>
           <input value={project} onChange={(e) => setProject(e.target.value)}
             placeholder="e.g. match"
             className="w-full h-9 px-3 text-sm bg-bg border border-border rounded-[var(--radius-sm)] text-text placeholder:text-text-muted" />
         </label>
+      </div>
 
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <label className="space-y-1">
           <span className="text-xs font-medium text-text-muted">Persona</span>
           <input value={persona} onChange={(e) => setPersona(e.target.value)}

@@ -17,7 +17,7 @@ func TestFormat_EmptyContext(testT *testing.T) {
 func TestFormat_GlobalOnly_ContainsSystemBlock(testT *testing.T) {
 	out := Format(Context{
 		GlobalMems: []t.Memory{
-			{Content: "rule one", Type: t.TypeBootstrap, Scope: t.ScopeGlobal},
+			{Content: "rule one", Type: t.TypeRule, Delivery: t.DeliveryBootstrap, Scope: t.ScopeGlobal},
 		},
 	})
 	if !strings.Contains(out, "## System") {
@@ -32,10 +32,10 @@ func TestFormat_StatsBlockPresent(testT *testing.T) {
 	out := Format(Context{
 		Project: ProjectInfo{Name: "plexo", Source: ".mememory file"},
 		GlobalMems: []t.Memory{
-			{Content: "global rule", Type: t.TypeBootstrap, Scope: t.ScopeGlobal},
+			{Content: "global rule", Type: t.TypeRule, Delivery: t.DeliveryBootstrap, Scope: t.ScopeGlobal},
 		},
 		ProjectMems: []t.Memory{
-			{Content: "project rule", Type: t.TypeBootstrap, Scope: t.ScopeProject, Project: "plexo"},
+			{Content: "project rule", Type: t.TypeRule, Delivery: t.DeliveryBootstrap, Scope: t.ScopeProject, Project: "plexo"},
 		},
 	})
 
@@ -59,7 +59,7 @@ func TestFormat_StatsBlockPresent(testT *testing.T) {
 func TestFormat_NoProject_ShowsGlobalsOnly(testT *testing.T) {
 	out := Format(Context{
 		GlobalMems: []t.Memory{
-			{Content: "rule", Type: t.TypeBootstrap, Scope: t.ScopeGlobal},
+			{Content: "rule", Type: t.TypeRule, Delivery: t.DeliveryBootstrap, Scope: t.ScopeGlobal},
 		},
 	})
 	if !strings.Contains(out, "(none — globals only)") {
@@ -108,7 +108,7 @@ func TestFormatThousands(testT *testing.T) {
 
 func TestCheckBudget_WithinBudget(testT *testing.T) {
 	mems := []t.Memory{
-		{Content: "small", Type: t.TypeBootstrap, Scope: t.ScopeGlobal},
+		{Content: "small", Type: t.TypeRule, Delivery: t.DeliveryBootstrap, Scope: t.ScopeGlobal},
 	}
 	if got := CheckBudget(mems); got != "" {
 		testT.Errorf("CheckBudget for small set should be empty, got %q", got)
@@ -119,7 +119,7 @@ func TestCheckBudget_OverBudget(testT *testing.T) {
 	// Build a payload that comfortably exceeds 30K tokens (~ 105 KB at 3.5 bytes/token).
 	huge := strings.Repeat("x", 200_000)
 	mems := []t.Memory{
-		{Content: huge, Type: t.TypeBootstrap, Scope: t.ScopeGlobal},
+		{Content: huge, Type: t.TypeRule, Delivery: t.DeliveryBootstrap, Scope: t.ScopeGlobal},
 	}
 	got := CheckBudget(mems)
 	if got == "" {
@@ -141,7 +141,7 @@ func TestFormat_OverflowWarning(testT *testing.T) {
 	out := Format(Context{
 		Project: ProjectInfo{Name: "plexo", Source: "test"},
 		GlobalMems: []t.Memory{
-			{Content: huge, Type: t.TypeBootstrap, Scope: t.ScopeGlobal},
+			{Content: huge, Type: t.TypeRule, Delivery: t.DeliveryBootstrap, Scope: t.ScopeGlobal},
 		},
 	})
 	if !strings.Contains(out, "WARNING") {

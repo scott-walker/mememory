@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom';
 import Markdown from 'react-markdown';
 import type { Memory } from '../types';
-import { ScopeBadge, TypeBadge } from './Badge';
+import { ScopeBadge, TypeBadge, DeliveryBadge } from './Badge';
 
 interface MemoryCardProps {
   memory: Memory;
@@ -18,6 +18,7 @@ export function MemoryCard({ memory, score, onDelete }: MemoryCardProps) {
         <div className="flex items-center gap-2 flex-wrap">
           <ScopeBadge scope={memory.scope} />
           <TypeBadge type={memory.type} />
+          <DeliveryBadge delivery={memory.delivery} />
           {memory.weight !== undefined && memory.weight < 1 && (
             <WeightIndicator weight={memory.weight} />
           )}

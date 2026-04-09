@@ -38,6 +38,9 @@ func registerRemember(srv *server.MCPServer, svc *engine.Service) {
 		mcpsdk.WithString("type",
 			mcpsdk.Description("Memory type: fact, rule, decision, feedback, context. Default: fact"),
 		),
+		mcpsdk.WithString("delivery",
+			mcpsdk.Description("Loading strategy: bootstrap (loaded at session start) or on_demand (loaded via recall/list). Default: on_demand"),
+		),
 		mcpsdk.WithString("tags",
 			mcpsdk.Description("Comma-separated tags for additional filtering"),
 		),
@@ -57,6 +60,7 @@ func registerRemember(srv *server.MCPServer, svc *engine.Service) {
 		scope, _ := req.GetArguments()["scope"].(string)
 		project, _ := req.GetArguments()["project"].(string)
 		typ, _ := req.GetArguments()["type"].(string)
+		delivery, _ := req.GetArguments()["delivery"].(string)
 		tags, _ := req.GetArguments()["tags"].(string)
 		ttl, _ := req.GetArguments()["ttl"].(string)
 		weightF, _ := req.GetArguments()["weight"].(float64)
@@ -82,6 +86,7 @@ func registerRemember(srv *server.MCPServer, svc *engine.Service) {
 			Scope:      engine.Scope(scope),
 			Project:    project,
 			Type:       engine.MemoryType(typ),
+			Delivery:   engine.Delivery(delivery),
 			Tags:       tagList,
 			Weight:     weightF,
 			Supersedes: supersedes,
@@ -97,19 +102,19 @@ func registerRemember(srv *server.MCPServer, svc *engine.Service) {
 		}
 
 		// Check bootstrap size when adding a bootstrap memory
-		if typ == "bootstrap" {
+		if result.Memory.Delivery == engine.DeliveryBootstrap {
 			proj := project
 			allBootstrap, _ := svc.List(ctx, engine.ListInput{
-				Scope: "global",
-				Type:  "bootstrap",
-				Limit: 100,
+				Scope:    "global",
+				Delivery: "bootstrap",
+				Limit:    100,
 			})
 			if proj != "" {
 				projBootstrap, _ := svc.List(ctx, engine.ListInput{
-					Scope:   "project",
-					Project: proj,
-					Type:    "bootstrap",
-					Limit:   100,
+					Scope:    "project",
+					Project:  proj,
+					Delivery: "bootstrap",
+					Limit:    100,
 				})
 				allBootstrap = append(allBootstrap, projBootstrap...)
 			}
@@ -236,7 +241,10 @@ func registerList(srv *server.MCPServer, svc *engine.Service) {
 			mcpsdk.Description("Filter by project name"),
 		),
 		mcpsdk.WithString("type",
-			mcpsdk.Description("Filter by type: fact, rule, decision, feedback, context, bootstrap"),
+			mcpsdk.Description("Filter by type: fact, rule, decision, feedback, context"),
+		),
+		mcpsdk.WithString("delivery",
+			mcpsdk.Description("Filter by delivery: bootstrap, on_demand"),
 		),
 		mcpsdk.WithNumber("limit",
 			mcpsdk.Description("Max results. Default: 20"),
@@ -247,6 +255,7 @@ func registerList(srv *server.MCPServer, svc *engine.Service) {
 		scope, _ := req.GetArguments()["scope"].(string)
 		project, _ := req.GetArguments()["project"].(string)
 		typ, _ := req.GetArguments()["type"].(string)
+		delivery, _ := req.GetArguments()["delivery"].(string)
 		limitF, _ := req.GetArguments()["limit"].(float64)
 
 		limit := int(limitF)
@@ -255,10 +264,11 @@ func registerList(srv *server.MCPServer, svc *engine.Service) {
 		}
 
 		memories, err := svc.List(ctx, engine.ListInput{
-			Scope:   scope,
-			Project: project,
-			Type:    typ,
-			Limit:   limit,
+			Scope:    scope,
+			Project:  project,
+			Type:     typ,
+			Delivery: delivery,
+			Limit:    limit,
 		})
 		if err != nil {
 			return mcpsdk.NewToolResultError(fmt.Sprintf("list failed: %v", err)), nil
@@ -356,13 +366,21 @@ Hierarchy: recall(project=Y) searches global + project:Y.
 | decision | Choices with reasoning: "chose Zustand because..." |
 | feedback | User corrections: "don't refactor without asking" |
 | context | Temporal situation: "preparing for demo on April 5" |
-| bootstrap | Essential rules loaded at session start automatically |
+
+## Delivery (loading strategy)
+
+| Delivery | Behavior |
+|----------|----------|
+| bootstrap | Loaded automatically at session start |
+| on_demand | Loaded via recall/list when needed (default) |
+
+Any type can be bootstrap — e.g. a rule that must always be active, or a fact the agent needs from the start.
 
 ## Key Parameters
 
-remember: content (required), scope, project, type, tags (comma-separated), ttl (e.g. "24h", "7d"), weight (0.1-1.0), supersedes (old memory ID)
+remember: content (required), scope, project, type, delivery, tags (comma-separated), ttl (e.g. "24h", "7d"), weight (0.1-1.0), supersedes (old memory ID)
 recall: query (required), scope, project, limit (default 5)
-list: scope, project, type, limit (default 20)
+list: scope, project, type, delivery, limit (default 20)
 
 ## Smart Features
 
@@ -396,7 +414,8 @@ Parameters:
 - content (string, REQUIRED): The text to remember. Be specific and self-contained.
 - scope (string): "global" | "project". Default: "global"
 - project (string): Project name. Required when scope=project.
-- type (string): "fact" | "rule" | "decision" | "feedback" | "context" | "bootstrap". Default: "fact"
+- type (string): "fact" | "rule" | "decision" | "feedback" | "context". Default: "fact"
+- delivery (string): "bootstrap" | "on_demand". Default: "on_demand". Bootstrap memories are loaded at session start; on_demand memories are fetched via recall/list.
 - tags (string): Comma-separated tags for filtering. E.g. "frontend, performance"
 - ttl (string): Auto-expire after duration. E.g. "24h", "7d", "30d". Omit for permanent.
 - weight (number): Confidence weight 0.1-1.0. Default: 1.0. Use lower values for uncertain or partially outdated beliefs.
@@ -433,11 +452,11 @@ Parameters:
 Browse memories with exact filters. No semantic search — returns all matching.
 
 Parameters:
-- scope, project, type: Exact match filters.
+- scope, project, type, delivery: Exact match filters.
 - limit (number): Max results. Default: 20.
 
 ## stats
-No parameters. Returns: {total, by_scope, by_project, by_type}.
+No parameters. Returns: {total, by_scope, by_project, by_type, by_delivery}.
 
 ## help
 This tool. Optional: topic= "overview" | "tools" | "scopes" | "types" | "examples" | "best-practices".`
@@ -501,19 +520,14 @@ Temporal/situational information. Often benefits from TTL.
 - "Currently refactoring auth flow, don't touch auth-store.ts"
 - "Sprint focus: Evidence Bundle implementation"
 
-## bootstrap
-Essential rules and directives loaded automatically at session start.
-Only bootstrap-type memories are included in the SessionStart hook output.
-All other types are loaded on demand via recall.
-- "Always respond in Russian"
-- "Use mememory MCP server as the only memory source"`
+Note: Any type can have delivery="bootstrap" to be loaded at session start, or delivery="on_demand" (default) to be fetched via recall/list.`
 
 const helpExamples = `# Usage Examples
 
-## Store a user preference (global fact)
+## Store a user preference (global rule, loaded at session start)
 remember(
   content="User communicates only in Russian. Always respond in Russian.",
-  scope="global", type="rule", tags="language, communication"
+  scope="global", type="rule", delivery="bootstrap", tags="language, communication"
 )
 
 ## Store a project architecture decision
@@ -541,6 +555,9 @@ recall(query="database architecture", project="match")
 
 ## Browse all feedback
 list(type="feedback")
+
+## Browse all bootstrap memories
+list(delivery="bootstrap")
 
 ## Browse project-specific rules
 list(scope="project", project="match", type="rule")
