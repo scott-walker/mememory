@@ -59,6 +59,7 @@ export default defineConfig({
           items: [
             { text: 'MCP Tools', link: '/reference/mcp-tools' },
             { text: 'CLI Commands', link: '/reference/cli' },
+            { text: '.mememory File', link: '/reference/mememory-file' },
             { text: 'Admin API', link: '/reference/admin-api' },
             { text: 'Changelog', link: '/reference/changelog' },
           ],
