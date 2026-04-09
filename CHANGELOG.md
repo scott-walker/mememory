@@ -1,6 +1,38 @@
 # Changelog
 
-## [0.3.0] - 2026-04-08
+## [0.4.0] - 2026-04-09
+
+This release introduces the `.mememory` project config file, replaces the byte-based bootstrap limit with a token-based budget, and adds a `## Bootstrap Stats` reporting block to every bootstrap payload. The hook becomes self-sufficient: a single global SessionStart hook (`mememory bootstrap` with no flags) now resolves the canonical project name from a `.mememory` file walked up from `cwd`, eliminating the need for project-local hook configuration.
+
+### Added
+- **`.mememory` project config file (schema v1).** A JSON file at the project root that pins the canonical project name for any directory inside the tree. Discovered via walk-up search from `cwd`, mirroring how `git` locates its repository root. Reserved field paths for future versions (`bootstrap.budget_tokens`, `recall.auto_query`, `agent.profile`, etc.) are documented but not yet active. See `docs/config/mememory-file.md` for the full schema spec, walk-up rules, versioning policy, and examples.
+- **New `internal/projectconfig` package.** Parses and validates `.mememory` files with forward-compatible unknown-field handling. Walk-up discovery (`FindWalkUp`), explicit validation (`Validate`), and future-version detection (`IsFutureVersion`).
+- **`## Bootstrap Stats` section in bootstrap output.** Every bootstrap payload now ends with a stats block reporting: project name + source label (`.mememory` file / git / cwd basename / `--project` flag), loaded memory counts split by scope (global vs project), token estimate, budget percent, raw byte count, and an overflow warning if the budget is exceeded. Visible in every session at start.
+- **Token-based bootstrap budget.** New constants `bootstrap.MaxBootstrapTokens` (30_000) and `bootstrap.BytesPerToken` (3.5). The 30K-token ceiling corresponds to ~15% of a 200K-token context window — bootstrap stays small enough that it never crowds out the conversation regardless of model.
+- **`bootstrap.EstimateTokens(bytes)`** helper for converting byte counts to estimated token counts.
+- **`bootstrap.CheckBudget(memories)`** helper that returns a non-empty warning string if a memory set would exceed the bootstrap token budget. Used by the `remember` MCP tool to flag overflow when adding bootstrap-typed memories.
+- **Project resolution priority chain in `mememory bootstrap`.** Order: `--project` flag → `.mememory` file (walk-up) → `git rev-parse --show-toplevel` basename → `basename(cwd)`. The chosen source is reported in the Stats block.
+- **Unit tests** for `internal/projectconfig` (10 tests covering load, validation, walk-up, future versions, error paths) and `internal/bootstrap` (10 tests covering Format, Stats, EstimateTokens, formatThousands, CheckBudget). The project previously had no tests.
+- **`docs/config/mememory-file.md`** — full specification of the `.mememory` file format.
+- **`BACKLOG.md`** — backlog tracking for tags, bootstrap MCP tool, content compression, and auto-recall (item 4 added in this release; items 2/3 actualized).
+
+### Changed
+- **`bootstrap.Format` signature is now struct-based:** `Format(Context) string` where `Context` bundles `ProjectInfo`, `GlobalMems`, and `ProjectMems`. The previous `Format(project string, memories []Memory)` form is gone. This gives the formatter enough information to render the Stats block accurately (project source, scope split) without juggling positional parameters.
+- **`bootstrap.CheckSize(project, memories)` renamed to `bootstrap.CheckBudget(memories)`** with simplified signature. Internal Go API only.
+- **`MaxBootstrapBytes` (10 KB) replaced by `MaxBootstrapTokens` (30_000).** Empirical testing of Claude Code SessionStart hook output showed no truncation up to 1 MB (the previous 10 KB ceiling was a self-imposed safety margin based on an outdated assumption about MCP client truncation). The new limit is denominated in tokens — a unit that scales with model context windows rather than file system bytes.
+- **`mememory bootstrap` help text** rewritten to describe the new project resolution chain and the `.mememory` file.
+- **`internal/mcp/resources.go`** migrated to the new `Format(Context)` API. Both the global bootstrap handler and the project bootstrap template handler now construct a `Context` struct with explicit `Source: "MCP resource"`.
+- **`internal/mcp/tools.go`** `remember` handler now calls `CheckBudget(allBootstrap)` instead of the removed `CheckSize(proj, allBootstrap)`.
+- **`CLAUDE.md`** Bootstrap section rewritten: documents the new resolution chain, `.mememory` file, token budget, Stats block. Removes the outdated reference to `MaxBootstrapBytes`.
+
+### Removed
+- `bootstrap.MaxBootstrapBytes` constant (superseded by `MaxBootstrapTokens`).
+- `bootstrap.CheckSize` function (superseded by `CheckBudget`).
+- The 10 KB hook output ceiling and its associated `WARNING: bootstrap output is XKB` stderr message. Replaced by the in-payload `WARNING: bootstrap exceeds budget by X%` line in the Stats block (printed to stdout, not stderr — visible to the agent).
+
+### Fixed
+- **Bootstrap project auto-detection no longer falls back to `cwd` basename for projects whose directory name does not match the canonical mememory project.** Previously, running `mememory bootstrap` from a directory like `/home/scott/dev/remide/projects` would resolve the project as `projects`, missing the canonical `plexo` scope and skipping all project-tagged memories. The `.mememory` file fixes this without requiring CLI flags or per-project hook configuration.
+- `cmd/mememory-server`: fix `ln.Close` error return check (lint, from `efef2fb`).
 
 ### Added
 - **Self-contained CLI install.** `mememory setup` now works from a standalone binary — no git clone or source checkout required. The production `docker-compose.yml` is embedded in the binary via `go:embed` and extracted to `$DATA_DIR/.infra/` on first run.

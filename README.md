@@ -138,7 +138,7 @@ pg_dump "$DATABASE_URL" > mememory-$(date +%F).sql
 
 **Contradiction detection** — warns when a new memory is >75% similar to existing ones. Does not block storage.
 
-**Session bootstrap** — `bootstrap`-type memories are delivered to the agent at session start via the `SessionStart` hook or the `mememory://bootstrap` MCP resource. Output is capped at 10KB to avoid MCP client truncation.
+**Session bootstrap** — `bootstrap`-type memories are delivered to the agent at session start via the `SessionStart` hook or the `mememory://bootstrap` MCP resource. The bootstrap payload is bounded by a 30K-token budget (~15% of a 200K-token context window) and ends with a `## Bootstrap Stats` block reporting project, source, memory counts, and budget usage. Project name is auto-resolved via a `.mememory` file at the project root (see [`docs/config/mememory-file.md`](docs/config/mememory-file.md)), with fallbacks to git basename and `cwd`.
 
 ## Embedding Providers
 

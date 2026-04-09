@@ -113,7 +113,7 @@ func registerRemember(srv *server.MCPServer, svc *engine.Service) {
 				})
 				allBootstrap = append(allBootstrap, projBootstrap...)
 			}
-			if warn := bootstrap.CheckSize(proj, allBootstrap); warn != "" {
+			if warn := bootstrap.CheckBudget(allBootstrap); warn != "" {
 				data, _ := json.MarshalIndent(result.Memory, "", "  ")
 				return mcpsdk.NewToolResultText(fmt.Sprintf("WARNING: %s\n\nStored memory:\n%s", warn, data)), nil
 			}

@@ -63,9 +63,9 @@ Stored memory details:
 { ... full JSON ... }
 ```
 
-### Bootstrap Size Warning
+### Bootstrap Budget Warning
 
-When storing a memory with `type="bootstrap"`, the server recomputes the combined bootstrap output for the relevant scope hierarchy. If the result exceeds **10KB** (`MaxBootstrapBytes`), the response is prefixed with a warning. The memory is still stored, but MCP clients may truncate the bootstrap output on the next session start. Remove or shorten some bootstrap memories to stay under the limit.
+When storing a memory with `type="bootstrap"`, the server recomputes the combined bootstrap output for the relevant scope hierarchy and estimates its token count. If the result exceeds **`MaxBootstrapTokens`** (30,000 tokens, ≈15% of a 200K-token context window), the response is prefixed with a warning. The memory is still stored — the budget exists to prevent bootstrap from crowding out the actual conversation, not to prevent storage. Remove or shorten some bootstrap memories to get back under the budget.
 
 ### Examples
 
@@ -353,4 +353,4 @@ In addition to tools, mememory exposes two MCP resources for session bootstrap:
 | `mememory://bootstrap` | Global memories with `type=bootstrap`, formatted as Markdown |
 | `mememory://bootstrap/{project}` | Global + project-scoped memories with `type=bootstrap`, formatted as Markdown |
 
-Only memories with `type=bootstrap` are returned. Resources are read-only and return the same output format as the [bootstrap command](/guide/bootstrap#output-format), including the 10KB size limit. Client support for MCP resources varies.
+Only memories with `type=bootstrap` are returned. Resources are read-only and return the same output format as the [bootstrap command](/guide/bootstrap#output-format), including the `MaxBootstrapTokens` (30,000 tokens) budget. Client support for MCP resources varies.

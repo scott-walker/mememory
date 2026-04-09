@@ -24,14 +24,16 @@ No Ollama or embedding computation is needed for bootstrap — it reads directly
 Bootstrap is deliberately narrow. Only `bootstrap`-type memories are loaded to keep the startup payload small and focused on directives the agent must know immediately. For everything else, the agent should call `recall` on the user's first message.
 :::
 
-## Size Limit
+## Token Budget
 
-Bootstrap output is capped at **10KB** (`MaxBootstrapBytes` in `internal/bootstrap/format.go`). This matches the truncation threshold of MCP clients like Claude Code, which cut off hook output around 12KB.
+Bootstrap output is bounded by `MaxBootstrapTokens` (`internal/bootstrap/format.go`) — currently **30,000 tokens**, which corresponds to roughly **15% of a 200K-token context window**. The budget is denominated in tokens (not bytes) so it scales with model context windows rather than file system sizes. Token counts are estimated from byte length using a `BytesPerToken` ratio of 3.5, tuned for mixed Cyrillic prose and code; per-tokenizer accuracy is intentionally out of scope.
 
-Behavior when the limit is exceeded:
+Why a token budget rather than a hard size cap: empirical testing of Claude Code SessionStart hook output showed no truncation up to 1 MB of payload — the previous 10 KB ceiling was a self-imposed safety margin based on an outdated assumption. The new limit exists not because the hook mechanism can't handle more, but to ensure bootstrap stays small enough that it never crowds out the actual conversation regardless of which agent loads it.
 
-- **`mememory bootstrap`** — prints a warning to stderr and still prints the output to stdout. The MCP client may truncate the bottom of the output.
-- **`remember(type="bootstrap", ...)`** — the memory is stored normally, but the response includes a warning message indicating that the combined bootstrap set now exceeds the limit. Remove or shorten some bootstrap memories to get back under 10KB.
+Behavior when the budget is exceeded:
+
+- **`mememory bootstrap`** — appends a `WARNING: bootstrap exceeds budget by X%` line to the in-payload `## Bootstrap Stats` block (visible to both the agent and the user) but still prints the full output. There is no truncation.
+- **`remember(type="bootstrap", ...)`** — the memory is stored normally, but the response is prefixed with a warning indicating that the combined bootstrap set now exceeds the budget. Remove or shorten some bootstrap memories to get back under the limit.
 
 Keep the bootstrap set small: a handful of imperatives, not a knowledge base.
 
@@ -40,7 +42,7 @@ Keep the bootstrap set small: a handful of imperatives, not a knowledge base.
 The native `mememory` binary runs on the host machine and calls the Admin API over HTTP:
 
 ```bash
-# Auto-detect project from git, fall back to global only
+# Auto-detect project from .mememory file → git → cwd
 mememory bootstrap
 
 # Override the project name explicitly
@@ -48,7 +50,13 @@ mememory bootstrap --project myapp
 ```
 
 ::: tip
-When `--project` is omitted, the CLI auto-detects the project name from the current git repository's root directory name. If not inside a git repo, it falls back to the current directory name.
+When `--project` is omitted, the CLI resolves the canonical project name through this priority chain:
+
+1. `.mememory` file discovered via walk-up from `cwd` (see [`.mememory` File Specification](/reference/mememory-file))
+2. `git rev-parse --show-toplevel` basename
+3. `basename(cwd)` as last-resort fallback
+
+The chosen source is reported in the `## Bootstrap Stats` block at the end of every payload.
 :::
 
 If the Admin API is unreachable, `mememory bootstrap` exits silently — the agent starts without bootstrap memories rather than crashing the session.
@@ -123,6 +131,19 @@ Project: match
 
 When a project is specified, each memory is prefixed with a scope label (`[global]`, `[project/match]`) so the agent can distinguish where the knowledge came from. When no project is specified (global-only bootstrap), scope labels are omitted.
 
+Every payload ends with a `## Bootstrap Stats` block:
+
+```markdown
+## Bootstrap Stats
+
+- Project:   plexo (source: .mememory file (/home/scott/dev/remide/projects/.mememory))
+- Loaded:    10 global + 0 project memories
+- Bootstrap: 2_344 / 30_000 tokens (7.8% of budget)
+- Context:   2_344 tokens loaded (8_205 bytes)
+```
+
+The `Project` line shows both the resolved name and which detection rule produced it (`flag`, `.mememory file (path)`, `git`, or `cwd basename`). The `Bootstrap` line shows token usage against the budget, and the `Context` line shows the raw token and byte counts loaded into the agent's context.
+
 ## MCP Resources (Alternative)
 
 Bootstrap data is also available as MCP resources, which some clients can read at connection time:
@@ -132,7 +153,7 @@ Bootstrap data is also available as MCP resources, which some clients can read a
 | `mememory://bootstrap` | Global memories with `type=bootstrap` |
 | `mememory://bootstrap/{project}` | Global + project-scoped memories with `type=bootstrap` |
 
-These resources return the same formatted Markdown as the CLI and apply the same 10KB limit. MCP resource support varies by client — the `SessionStart` hook approach is more reliable.
+These resources return the same formatted Markdown as the CLI and apply the same `MaxBootstrapTokens` budget. MCP resource support varies by client — the `SessionStart` hook approach is more reliable.
 
 ## Filtering
 

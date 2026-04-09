@@ -155,7 +155,9 @@ At the start of every session, a Claude Code `SessionStart` hook runs `mememory 
 
 - Only `bootstrap`-type memories are delivered at session start — other types are loaded on demand via `recall`
 - New bootstrap rules take effect in the next session automatically
-- Output is capped at **10KB** (`MaxBootstrapBytes`). If exceeded, a warning is printed and the CLI keeps the output — but MCP clients may truncate it
+- Output is bounded by a token-based budget (`MaxBootstrapTokens` = 30_000, ≈15% of a 200K-token context window). If exceeded, a `WARNING: bootstrap exceeds budget` line is appended to the Stats block but the full output is still printed
+- Every payload ends with a `## Bootstrap Stats` block reporting project name, source, memory counts, token estimate, and budget usage
+- Project name is auto-resolved via a `.mememory` file at the project root (see [`config/mememory-file.md`](config/mememory-file.md)) with fallbacks to git basename and `cwd`
 
 Bootstrap groups memories by type in priority order: **Bootstrap > Rules > Feedback > Facts > Decisions > Context**. Since only bootstrap-type memories are loaded, the other sections are empty in the default flow but remain available when the Format helper is used by other callers.
 

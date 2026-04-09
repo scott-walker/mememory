@@ -6,7 +6,7 @@ import (
 )
 
 // Set by GoReleaser via ldflags; default reflects current release version.
-var Version = "0.3.0"
+var Version = "0.4.0"
 
 const defaultAdminURL = "http://localhost:4200"
 
@@ -60,7 +60,12 @@ Commands:
   version      Print version
 
 Bootstrap flags:
-  --project <name>    Override project name (default: auto-detect from git)
+  --project <name>    Override project name. Without this flag, the project is
+                      resolved via this priority chain:
+                        1. .mememory file (walk-up from cwd)
+                        2. git rev-parse --show-toplevel basename
+                        3. basename(cwd)
+                      See docs/config/mememory-file.md for the .mememory format.
   --url <url>         Admin API URL (default: http://localhost:4200)
 
 Uninstall flags:

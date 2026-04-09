@@ -70,10 +70,18 @@ Why PostgreSQL instead of a dedicated vector DB: one database handles both vecto
 7. Agent receives essential directives from the first message; everything else is loaded on demand via `recall`
 ```
 
-`mememory bootstrap` is a thin native CLI binary that talks to the Admin API over HTTP. It does not connect to PostgreSQL directly. Output is capped at 10KB (`MaxBootstrapBytes`); above that, a warning is printed to stderr because MCP clients may truncate hook output. If the Admin API is unreachable, the command exits silently — the agent starts without bootstrap memories rather than crashing the session.
+`mememory bootstrap` is a thin native CLI binary that talks to the Admin API over HTTP. It does not connect to PostgreSQL directly. The output is bounded by a token-based budget (`MaxBootstrapTokens` = 30_000, ≈15% of a 200K-token context window) so bootstrap never crowds out the conversation regardless of model. The CLI does not truncate output above the budget — instead it appends a `WARNING: bootstrap exceeds budget` line to the in-payload `## Bootstrap Stats` block, so the agent sees the overflow as well as the user. If the Admin API is unreachable, the command exits silently — the agent starts without bootstrap memories rather than crashing the session.
+
+Project name is auto-resolved through a priority chain:
+1. `--project` flag (explicit override)
+2. `.mememory` file discovered via walk-up from `cwd` (see [`docs/config/mememory-file.md`](config/mememory-file.md))
+3. `git rev-parse --show-toplevel` basename
+4. `basename(cwd)` as last-resort fallback
+
+The chosen source is reported in the `## Bootstrap Stats` block at the end of every payload.
 
 Flags:
-- `--project <name>` — override auto-detected project name
+- `--project <name>` — explicit project name override
 - `--url <url>` — override Admin API URL (default `http://localhost:4200`)
 
 ## Directory Structure

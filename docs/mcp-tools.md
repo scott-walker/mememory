@@ -15,7 +15,7 @@ Store a new memory with semantic embedding.
 | `weight` | number | no | 1.0 | Priority 0.1–1.0 |
 | `supersedes` | string | no | — | UUID of memory this replaces |
 
-Returns the stored memory. Warns if contradictions detected (similarity > 75%). When storing a `bootstrap`-type memory, also warns if the total bootstrap output would exceed 10KB.
+Returns the stored memory. Warns if contradictions detected (similarity > 75%). When storing a `bootstrap`-type memory, also warns if the total bootstrap output would exceed `MaxBootstrapTokens` (30_000 tokens, ≈15% of a 200K-token context window).
 
 ## recall
 

@@ -66,16 +66,24 @@ mememory bootstrap [flags]
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--project <name>` | auto-detect from git | Project name for scope filtering |
+| `--project <name>` | auto-detected via priority chain | Project name override for scope filtering |
 | `--url <url>` | `http://localhost:4200` | Admin API URL |
+
+**Project resolution priority:**
+
+When `--project` is not set, the canonical project name is resolved through this chain. The first source that yields a non-empty name wins, and the chosen source is reported in the `## Bootstrap Stats` block at the end of every payload.
+
+1. `.mememory` file discovered via walk-up from `cwd` (see [`.mememory` File Specification](mememory-file))
+2. `git rev-parse --show-toplevel` basename
+3. `basename(cwd)` as last-resort fallback
 
 **Behavior:**
 
-1. If `--project` is not set, auto-detects from the current git repository's root directory name. Falls back to the current directory name if not inside a git repo.
+1. Resolves the project name (see priority chain above)
 2. Fetches global memories with `type=bootstrap` from the Admin API
 3. If a project is set, also fetches project-scoped bootstrap memories
-4. Formats all memories as Markdown with a hard-coded `## System` section followed by grouped memories (bootstrap > rules > feedback > facts > decisions > context)
-5. If the combined output exceeds `MaxBootstrapBytes` (10KB), prints a warning to stderr — MCP clients may truncate the output, so the bootstrap set should be kept small
+4. Formats all memories as Markdown with a hard-coded `## System` section, followed by grouped memories (bootstrap > rules > feedback > facts > decisions > context), followed by a `## Bootstrap Stats` block
+5. If the estimated token count exceeds `MaxBootstrapTokens` (30_000 tokens, ≈15% of a 200K-token context window), appends a `WARNING: bootstrap exceeds budget` line to the Stats block — but does not truncate the output
 6. Prints to stdout
 
 **Exit behavior:**

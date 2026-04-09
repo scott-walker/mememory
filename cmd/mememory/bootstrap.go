@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/scott-walker/mememory/internal/bootstrap"
+	"github.com/scott-walker/mememory/internal/projectconfig"
 	t "github.com/scott-walker/mememory/internal/types"
 )
 
@@ -39,38 +40,34 @@ func parseBootstrapArgs(args []string) bootstrapArgs {
 }
 
 func runBootstrap(args bootstrapArgs) error {
-	// Auto-detect project from git repo if not explicitly set
-	if args.project == "" {
-		args.project = detectProject()
-	}
+	// Resolve the project name through the priority chain. Detection failures
+	// are non-fatal: an unknown project just means we cannot fetch the
+	// project-scoped slice — globals still load and the report will say so.
+	project := detectProject(args.project)
 
 	client := &http.Client{Timeout: 5 * time.Second}
 
-	// Fetch global bootstrap memories
-	memories, err := fetchMemories(client, args.url, "global", "", "bootstrap", 100)
+	// Fetch global bootstrap memories. Admin API outages are silently swallowed
+	// so the agent still starts, just without persisted memory context.
+	globalMems, err := fetchMemories(client, args.url, "global", "", "bootstrap", 100)
 	if err != nil {
-		// Silent exit if admin API is unreachable — agent starts without memory
 		return nil
 	}
 
-	// Fetch project-scoped memories
-	if args.project != "" {
-		projectMems, err := fetchMemories(client, args.url, "project", args.project, "bootstrap", 100)
-		if err == nil {
-			memories = append(memories, projectMems...)
-		}
+	var projectMems []t.Memory
+	if project.Name != "" {
+		projectMems, _ = fetchMemories(client, args.url, "project", project.Name, "bootstrap", 100)
 	}
 
-	if len(memories) == 0 {
+	if len(globalMems) == 0 && len(projectMems) == 0 {
 		return nil
 	}
 
-	output := bootstrap.Format(args.project, memories)
-
-	if len(output) > bootstrap.MaxBootstrapBytes {
-		fmt.Fprintf(os.Stderr, "WARNING: bootstrap output is %dKB (limit: %dKB). MCP clients may truncate it. Remove or shorten some bootstrap memories.\n",
-			len(output)/1024, bootstrap.MaxBootstrapBytes/1024)
-	}
+	output := bootstrap.Format(bootstrap.Context{
+		Project:     project,
+		GlobalMems:  globalMems,
+		ProjectMems: projectMems,
+	})
 
 	fmt.Print(output)
 	return nil
@@ -112,25 +109,53 @@ func fetchMemories(client *http.Client, baseURL, scope, project, typ string, lim
 	return memories, nil
 }
 
-// detectProject determines the project name from the current working directory.
-// Uses git repository root directory name if inside a git repo, otherwise the
-// current directory name. Returns empty string if detection fails.
-func detectProject() string {
-	// Try git first — most reliable for monorepos and nested directories
-	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+// detectProject resolves the canonical project name through a priority chain.
+//
+// Sources, in order:
+//  1. Explicit --project flag passed to bootstrap.
+//  2. .mememory file discovered via walk-up from cwd.
+//  3. git rev-parse --show-toplevel basename, if inside a repo.
+//  4. basename(cwd) as a last resort.
+//
+// The first source that yields a non-empty name wins. The returned source
+// label is reported back to the user in the bootstrap stats block so they can
+// see exactly where the resolved name came from.
+func detectProject(flag string) bootstrap.ProjectInfo {
+	if flag != "" {
+		return bootstrap.ProjectInfo{Name: flag, Source: "flag"}
+	}
+
+	wd, err := os.Getwd()
 	if err == nil {
-		root := filepath.Base(trimNewline(string(out)))
-		if root != "" && root != "." {
-			return root
+		if found, ferr := projectconfig.FindWalkUp(wd); ferr == nil && found != nil {
+			return bootstrap.ProjectInfo{
+				Name:   found.File.Project,
+				Source: ".mememory file (" + found.Path + ")",
+			}
 		}
 	}
 
-	// Fallback to current working directory name
-	wd, err := os.Getwd()
+	if name := projectFromGit(); name != "" {
+		return bootstrap.ProjectInfo{Name: name, Source: "git"}
+	}
+
+	if wd != "" {
+		return bootstrap.ProjectInfo{Name: filepath.Base(wd), Source: "cwd basename"}
+	}
+
+	return bootstrap.ProjectInfo{}
+}
+
+func projectFromGit() string {
+	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
 	if err != nil {
 		return ""
 	}
-	return filepath.Base(wd)
+	root := filepath.Base(trimNewline(string(out)))
+	if root == "" || root == "." {
+		return ""
+	}
+	return root
 }
 
 func trimNewline(s string) string {

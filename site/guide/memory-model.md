@@ -163,7 +163,7 @@ remember(
 )
 ```
 
-**When to use:** rules and directives that the agent must know immediately on session start, before it can safely take any action. Keep the set small — the combined bootstrap output is capped at 10KB to avoid truncation by MCP clients.
+**When to use:** rules and directives that the agent must know immediately on session start, before it can safely take any action. Keep the set small — the combined bootstrap output is bounded by `MaxBootstrapTokens` (30,000 tokens, ≈15% of a 200K-token context window) and exists specifically to ensure session-start memory never crowds out the actual conversation. Overflow is reported in the in-payload `## Bootstrap Stats` block but is not truncated.
 
 ## Weight
 

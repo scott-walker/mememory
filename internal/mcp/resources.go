@@ -45,7 +45,10 @@ func bootstrapHandler(svc *engine.Service) server.ResourceHandlerFunc {
 			return nil, fmt.Errorf("bootstrap: %w", err)
 		}
 
-		text := bootstrap.Format("", memories)
+		text := bootstrap.Format(bootstrap.Context{
+			Project:    bootstrap.ProjectInfo{Source: "MCP resource"},
+			GlobalMems: memories,
+		})
 
 		return []mcpsdk.ResourceContents{
 			mcpsdk.TextResourceContents{
@@ -86,8 +89,14 @@ func projectBootstrapHandler(svc *engine.Service) server.ResourceTemplateHandler
 			return nil, fmt.Errorf("bootstrap project: %w", err)
 		}
 
-		all := append(global, projectMems...)
-		text := bootstrap.Format(project, all)
+		text := bootstrap.Format(bootstrap.Context{
+			Project: bootstrap.ProjectInfo{
+				Name:   project,
+				Source: "MCP resource",
+			},
+			GlobalMems:  global,
+			ProjectMems: projectMems,
+		})
 
 		return []mcpsdk.ResourceContents{
 			mcpsdk.TextResourceContents{

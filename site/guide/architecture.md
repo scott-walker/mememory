@@ -186,7 +186,9 @@ Merge results
     ↓
 Format as Markdown with a hard-coded System section, then Bootstrap/Rules/Feedback/Facts/Decisions/Context groups
     ↓
-If output exceeds MaxBootstrapBytes (10KB) → warning on stderr
+Append a `## Bootstrap Stats` block with project source, memory counts, token estimate, budget percent
+    ↓
+If estimated tokens exceed MaxBootstrapTokens (30_000) → append `WARNING: bootstrap exceeds budget` to Stats block (no truncation)
     ↓
 Print to stdout → captured by SessionStart hook → injected into agent context
 ```

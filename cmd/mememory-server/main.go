@@ -73,7 +73,7 @@ func main() {
 
 	srv := server.NewMCPServer(
 		"mememory",
-		"0.3.0",
+		"0.4.0",
 		server.WithToolCapabilities(true),
 		server.WithResourceCapabilities(true, false),
 		server.WithInstructions("Persistent semantic memory for AI agents. "+

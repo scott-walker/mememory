@@ -49,7 +49,7 @@ web/                                # React admin UI source
 
 | Tool | Params | Description |
 |------|--------|-------------|
-| `remember` | content, scope, project?, type, tags?, weight?, ttl?, supersedes? | Store a memory (warns if a `bootstrap`-typed entry pushes total bootstrap output past 10KB) |
+| `remember` | content, scope, project?, type, tags?, weight?, ttl?, supersedes? | Store a memory (warns if a `bootstrap`-typed entry pushes total bootstrap output past `MaxBootstrapTokens`) |
 | `recall` | query, scope?, project?, limit? | Semantic search with hierarchical inheritance |
 | `forget` | id | Delete by ID |
 | `update` | id, content | Re-embed and update |
@@ -62,12 +62,16 @@ Memory types: `fact`, `rule`, `decision`, `feedback`, `context`, `bootstrap`. On
 ## Bootstrap (CLI mode)
 
 ```bash
-mememory bootstrap                            # global bootstrap memories
-mememory bootstrap --project myapp            # global + project bootstrap memories
+mememory bootstrap                            # auto-detect project (.mememory file → git → cwd)
+mememory bootstrap --project myapp            # explicit project override
 mememory bootstrap --url http://host:4200     # custom admin API URL
 ```
 
-Designed for SessionStart hooks. Talks to the admin HTTP API (no direct DB access), filters by `type=bootstrap`, formats as Markdown, prints to stdout. Output is capped at 10KB (`bootstrap.MaxBootstrapBytes`); larger outputs print a warning to stderr because MCP clients truncate hook output. The formatted Markdown always begins with a hard-coded `## System` section instructing the agent to treat mememory as the only memory source and to call `recall` on the user's first message.
+Designed for SessionStart hooks. Talks to the admin HTTP API (no direct DB access), filters by `type=bootstrap`, formats as Markdown, prints to stdout.
+
+**Project resolution priority:** `--project` flag → `.mememory` file (walk-up from cwd) → `git rev-parse --show-toplevel` basename → `basename(cwd)`. The chosen source is reported in the trailing `## Bootstrap Stats` block. See `docs/config/mememory-file.md` for the `.mememory` file specification.
+
+**Token budget:** the bootstrap payload is bounded by `bootstrap.MaxBootstrapTokens` (30K tokens, ≈15% of a 200K-token context window). Token counts are estimated from byte length using `bootstrap.BytesPerToken` (3.5 — tuned for mixed Cyrillic prose and code; per-tokenizer accuracy is out of scope). Overflow appends a `WARNING` line to the output but does not truncate. The Markdown always begins with a hard-coded `## System` section instructing the agent to treat mememory as the only memory source and to call `recall` on the user's first message, and ends with a `## Bootstrap Stats` block reporting project, source, memory counts, and budget usage.
 
 ## Scopes & Hierarchy
 
