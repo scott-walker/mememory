@@ -1,5 +1,36 @@
 # Changelog
 
+## [0.6.0] - 2026-04-27
+
+This release introduces a third memory delivery type — `pinned` — for rules that must be reinjected on every agent turn rather than only at session start, plus a forced-recall mechanism that physically blocks tool calls until the agent has loaded project context via `mcp__mememory__recall`. Together they turn critical rules into a per-turn checklist instead of background that drifts up the context.
+
+### Added
+
+- **`delivery=pinned` memory type.** Reinjected on every agent turn through the `UserPromptSubmit` hook. Payload wraps in `<system-reminder>` with rotated framing imperatives so the rules stay weighted as a checklist instead of fading into background.
+- **System meta-rules layer** hard-coded in the binary (`internal/system_rules/`). Five formulations of each meta-rule (recall mandate, code-vs-memory truth source, "rule violation = task failure") plus rotated openings/closings defend against agent adaptation to a single phrasing.
+- **Forced recall via PreToolUse hook.** Lock file keyed on `session_id` is armed at SessionStart and removed by PostToolUse on `mcp__mememory__recall`. While the lock exists, `mememory recall-gate` denies any tool whose name doesn't start with `mcp__mememory__`. Stale locks (>24h) are GC'd at the next SessionStart.
+- **`mememory install-hooks` command.** Idempotent `~/.claude/settings.json` patcher with timestamped backup. Preserves existing settings and foreign hooks; leaves customised mememory commands alone on re-install. `--uninstall` removes the four entries cleanly.
+- **`mememory setup` interactive prompt.** At the end of setup, asks whether to install the four Claude Code hooks now.
+- **CLI commands:** `pinned`, `recall-gate`, `recall-ack`, `install-hooks`. `bootstrap --hook` now also creates the recall-pending lock from the SessionStart stdin payload.
+- **MCP resources:** `mememory://pinned` and `mememory://pinned/{project}`.
+- **Soft budget warning** at ~5,000 tokens for the pinned payload — informational, never blocks. Pinned must stay tight to act as a checklist.
+- **API endpoint** `GET /api/pinned/preview?project=...` returns rendered markdown plus stats `{global, project, tokens}`.
+- **Admin UI: Pinned Preview page** at `/pinned` renders the exact payload your agent receives for any project, with token estimate and per-scope counts.
+- **`pinned` option** in admin UI delivery filter (Memories page) and New Memory form.
+- **New documentation page:** `site/guide/pinned.md` — what pinned is, how it differs from bootstrap, hook chain, forced recall mechanism, settings.json shape, CLI usage, MCP resources alternative.
+
+### Changed
+
+- **Bootstrap output** now includes a forced-recall directive in the System section reminding the agent that `recall` is the obligatory first operation in a session.
+- **MCP `remember` tool** description and help texts mention `pinned` everywhere; soft-budget warning fires when the pinned set exceeds the threshold.
+- **Persona scope** removed from the entire admin UI (legacy — backend already without it). Cleaned in `FilterBar`, `MemoryForm`, `MemoryList`, `Search`, `Settings`, `MemoryCard`, `MemoryDetail`, `Badge`, `StatsCards`, plus the unused `--color-scope-persona` CSS token.
+- **Documentation updates:** bootstrap.md cross-link to pinned, getting-started.md install-hooks step, mcp-client-setup.md hook config (all four hooks), reference/cli.md command details, README feature bullets, docs/setup.md.
+
+### Compatibility
+
+- **No SQL migration.** The `delivery` column is `TEXT`, so adding `pinned` is a Go-only change. Existing `bootstrap` and `on_demand` memories are untouched.
+- **OpenAI Codex CLI** install-hooks parity scheduled for 0.7.0. Codex users can still wire `SessionStart → mememory bootstrap --hook` manually.
+
 ## [0.5.0] - 2026-04-09
 
 This release separates the loading strategy from the semantic type by introducing a new `delivery` dimension (`bootstrap` | `on_demand`). Previously, `type=bootstrap` served double duty as both a semantic category and a loading mechanism, which meant bootstrap memories lost their true type (rule, fact, feedback, etc.). Now any memory type can be marked as `delivery=bootstrap` to be loaded at session start, while retaining its semantic classification.
