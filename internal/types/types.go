@@ -24,6 +24,7 @@ type Delivery string
 const (
 	DeliveryBootstrap Delivery = "bootstrap"
 	DeliveryOnDemand  Delivery = "on_demand"
+	DeliveryPinned    Delivery = "pinned"
 )
 
 type Memory struct {

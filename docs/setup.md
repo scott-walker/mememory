@@ -17,6 +17,8 @@ mememory setup
 
 `mememory setup` extracts the bundled Docker Compose file, resolves a data directory, and runs `docker compose up -d`. No source checkout required. First start pulls the embedding model (~274 MB).
 
+When the stack is up, `mememory setup` interactively asks whether to install the four Claude Code hooks (SessionStart, UserPromptSubmit, PreToolUse, PostToolUse) into `~/.claude/settings.json`. Skip the prompt and run `mememory install-hooks` later — the result is identical.
+
 ## Bring your own Postgres
 
 `DATABASE_URL` is **required** — there is no fallback. If unset, the server exits immediately with a clear hint.
@@ -57,7 +59,7 @@ Add a `SessionStart` hook to your Claude Code settings (`settings.json`) so that
         "hooks": [
           {
             "type": "command",
-            "command": "mememory bootstrap"
+            "command": "mememory bootstrap --hook"
           }
         ]
       }

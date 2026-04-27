@@ -13,7 +13,6 @@ export function MemoryForm({ onSubmit, onCancel, initialContent }: MemoryFormPro
   const [type, setType] = useState<MemoryType>('fact');
   const [delivery, setDelivery] = useState<Delivery>('on_demand');
   const [project, setProject] = useState('');
-  const [persona, setPersona] = useState('');
   const [tags, setTags] = useState('');
   const [ttl, setTtl] = useState('');
   const [weight, setWeight] = useState('1.0');
@@ -32,7 +31,6 @@ export function MemoryForm({ onSubmit, onCancel, initialContent }: MemoryFormPro
         type,
         delivery,
         project: project || undefined,
-        persona: persona || undefined,
         tags: tags ? tags.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
         weight: parseFloat(weight) || undefined,
         supersedes: supersedes || undefined,
@@ -63,7 +61,6 @@ export function MemoryForm({ onSubmit, onCancel, initialContent }: MemoryFormPro
             className="w-full h-9 px-3 text-sm bg-bg border border-border rounded-[var(--radius-sm)] text-text">
             <option value="global">global</option>
             <option value="project">project</option>
-            <option value="persona">persona</option>
           </select>
         </label>
 
@@ -85,6 +82,7 @@ export function MemoryForm({ onSubmit, onCancel, initialContent }: MemoryFormPro
             className="w-full h-9 px-3 text-sm bg-bg border border-border rounded-[var(--radius-sm)] text-text">
             <option value="on_demand">on_demand</option>
             <option value="bootstrap">bootstrap</option>
+            <option value="pinned">pinned</option>
           </select>
         </label>
 
@@ -92,15 +90,6 @@ export function MemoryForm({ onSubmit, onCancel, initialContent }: MemoryFormPro
           <span className="text-xs font-medium text-text-muted">Project</span>
           <input value={project} onChange={(e) => setProject(e.target.value)}
             placeholder="e.g. match"
-            className="w-full h-9 px-3 text-sm bg-bg border border-border rounded-[var(--radius-sm)] text-text placeholder:text-text-muted" />
-        </label>
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <label className="space-y-1">
-          <span className="text-xs font-medium text-text-muted">Persona</span>
-          <input value={persona} onChange={(e) => setPersona(e.target.value)}
-            placeholder="e.g. architect"
             className="w-full h-9 px-3 text-sm bg-bg border border-border rounded-[var(--radius-sm)] text-text placeholder:text-text-muted" />
         </label>
       </div>

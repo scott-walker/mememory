@@ -15,6 +15,7 @@
 package bootstrap
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -55,6 +56,42 @@ type Context struct {
 	Project     ProjectInfo
 	GlobalMems  []t.Memory
 	ProjectMems []t.Memory
+}
+
+// FormatHookJSON renders a Context into the JSON payload expected by
+// SessionStart hook runners that support the hookSpecificOutput protocol
+// (Claude Code and OpenAI Codex CLI, as of this writing). The wrapped text is
+// the same Markdown produced by Format — only the framing differs.
+//
+// Hook runners that recognise this schema parse the JSON silently and inject
+// additionalContext into the model's context without echoing anything to the
+// user's terminal. Runners that do not recognise it will print the JSON as
+// plain text, which is noisy but not destructive.
+//
+// Returns an empty string when there is nothing to report, so the caller can
+// suppress output entirely (emitting an empty JSON object would still be
+// parsed as "zero additional context" but wastes a line of terminal noise on
+// runners that do not support the schema).
+func FormatHookJSON(ctx Context) (string, error) {
+	md := Format(ctx)
+	if md == "" {
+		return "", nil
+	}
+
+	payload := struct {
+		HookSpecificOutput struct {
+			HookEventName     string `json:"hookEventName"`
+			AdditionalContext string `json:"additionalContext"`
+		} `json:"hookSpecificOutput"`
+	}{}
+	payload.HookSpecificOutput.HookEventName = "SessionStart"
+	payload.HookSpecificOutput.AdditionalContext = md
+
+	out, err := json.Marshal(payload)
+	if err != nil {
+		return "", fmt.Errorf("marshal hook payload: %w", err)
+	}
+	return string(out), nil
 }
 
 // Format renders a Context into the Markdown payload that the SessionStart

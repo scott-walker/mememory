@@ -49,7 +49,6 @@ export function MemoryDetail() {
           <TypeBadge type={memory.type} />
           <DeliveryBadge delivery={memory.delivery} />
           {memory.project && <span className="text-xs text-text-muted">{memory.project}</span>}
-          {memory.persona && <span className="text-xs text-text-muted">/ {memory.persona}</span>}
           {memory.supersedes && (
             <Link to={`/memories/${memory.supersedes}`} className="text-xs px-1.5 py-0.5 rounded bg-accent/10 text-accent hover:bg-accent/20 transition-colors">
               overrides {memory.supersedes.slice(0, 8)}...

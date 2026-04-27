@@ -6,7 +6,9 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/scott-walker/mememory/internal/bootstrap"
 	"github.com/scott-walker/mememory/internal/engine"
+	"github.com/scott-walker/mememory/internal/pinned"
 )
 
 type Handler struct {
@@ -164,6 +166,67 @@ func (h *Handler) Import(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]int{"imported": imported})
+}
+
+// PinnedPreview renders the full pinned-payload that the UserPromptSubmit
+// hook would inject for a given project — used by the admin UI to show
+// users exactly what their agent receives every turn.
+//
+// Rendering uses a fixed seed so the preview is reproducible. The system
+// layer rotates with random seeds in production, but for an inspection UI
+// stability beats novelty.
+func (h *Handler) PinnedPreview(w http.ResponseWriter, r *http.Request) {
+	project := r.URL.Query().Get("project")
+
+	global, err := h.svc.List(r.Context(), engine.ListInput{
+		Scope:    "global",
+		Delivery: "pinned",
+		Limit:    100,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	var projectMems []engine.Memory
+	if project != "" {
+		projectMems, err = h.svc.List(r.Context(), engine.ListInput{
+			Scope:    "project",
+			Project:  project,
+			Delivery: "pinned",
+			Limit:    100,
+		})
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, err.Error())
+			return
+		}
+	}
+
+	markdown := pinned.Format(pinned.Context{
+		Project: bootstrap.ProjectInfo{
+			Name:   project,
+			Source: "admin preview",
+		},
+		GlobalMems:  global,
+		ProjectMems: projectMems,
+		Seed:        1,
+	})
+
+	resp := struct {
+		Markdown string `json:"markdown"`
+		Stats    struct {
+			Global  int `json:"global"`
+			Project int `json:"project"`
+			Tokens  int `json:"tokens"`
+		} `json:"stats"`
+	}{
+		Markdown: markdown,
+	}
+	resp.Stats.Global = len(global)
+	resp.Stats.Project = len(projectMems)
+	resp.Stats.Tokens = pinned.EstimateTokens(len(markdown))
+
+	writeJSON(w, http.StatusOK, resp)
 }
 
 // --- Helpers ---

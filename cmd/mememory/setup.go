@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bufio"
 	_ "embed"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -117,7 +119,41 @@ func runSetup() error {
 	fmt.Printf("  Data directory: %s\n", dataDir)
 	fmt.Printf("  Compose file:   %s\n", composeFile)
 	fmt.Println("  Admin UI:       http://localhost:4200")
+
+	maybeOfferHookInstall()
 	return nil
+}
+
+// maybeOfferHookInstall asks the user if they want to install Claude Code
+// hooks now. Skipped silently when stdin is not a TTY (CI, automation) so
+// non-interactive `mememory setup` runs don't block on unread input.
+//
+// Errors during install are reported but don't fail setup \u2014 the Docker
+// stack is up regardless, and the user can re-run `mememory install-hooks`
+// manually later.
+func maybeOfferHookInstall() {
+	stat, err := os.Stdin.Stat()
+	if err != nil || (stat.Mode()&os.ModeCharDevice) == 0 {
+		fmt.Println()
+		fmt.Println("Run `mememory install-hooks` to enable Claude Code integration.")
+		return
+	}
+
+	fmt.Println()
+	fmt.Print("Install Claude Code hooks now? (y/N): ")
+	reader := bufio.NewReader(os.Stdin)
+	answer, _ := reader.ReadString('\n')
+	answer = strings.ToLower(strings.TrimSpace(answer))
+
+	if answer != "y" && answer != "yes" {
+		fmt.Println("Skipped. Run `mememory install-hooks` later when ready.")
+		return
+	}
+
+	if err := runInstallHooks(installHooksArgs{}); err != nil {
+		fmt.Fprintf(os.Stderr, "Hook installation failed: %v\n", err)
+		fmt.Fprintln(os.Stderr, "You can retry with: mememory install-hooks")
+	}
 }
 
 // pullOllamaModel waits for the ollama container to be healthy, then pulls

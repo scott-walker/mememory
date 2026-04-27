@@ -108,20 +108,17 @@ Add the MCP server to your config file (`~/.claude/.mcp.json`, or `.mcp.json` in
 }
 ```
 
-For automatic session bootstrap (loads rules and context at session start), add a hook to your [Claude Code settings](/guide/mcp-client-setup):
+For automatic session bootstrap, per-turn pinned-rule reinjection, and forced first-recall enforcement, install all four hooks in one command:
 
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "type": "command",
-        "command": "mememory bootstrap"
-      }
-    ]
-  }
-}
+```bash
+mememory install-hooks
 ```
+
+This patches `~/.claude/settings.json` with `SessionStart`, `UserPromptSubmit`, `PreToolUse`, and `PostToolUse` hooks. Existing settings are preserved; a backup is written before any change. Run `mememory install-hooks --uninstall` to remove.
+
+`mememory setup` also offers to install the hooks at the end of its run if you skipped this step earlier.
+
+See [MCP Client Setup](/guide/mcp-client-setup) for the manual configuration if you prefer to edit `settings.json` by hand, or [Pinned Rules & Forced Recall](/guide/pinned) for what the new hooks actually do.
 
 ### Claude Desktop
 
@@ -150,4 +147,5 @@ Check the Admin UI at [http://localhost:4200](http://localhost:4200) to see the 
 - [Memory Model](/guide/memory-model) — understand memory types, fields, and when to use each
 - [Scopes & Hierarchy](/guide/scopes) — learn about global and project scopes
 - [Session Bootstrap](/guide/bootstrap) — configure automatic memory loading at session start
+- [Pinned Rules & Forced Recall](/guide/pinned) — per-turn rule reinjection and recall enforcement
 - [MCP Client Setup](/guide/mcp-client-setup) — detailed setup for all supported clients

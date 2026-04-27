@@ -2,6 +2,29 @@
 
 All notable changes to mememory are documented here.
 
+## v0.6.0 — 2026-04-27
+
+### Pinned delivery + forced recall
+
+- **New `pinned` delivery type.** Reinjects on every agent turn through the `UserPromptSubmit` hook, wrapped in a `<system-reminder>` block with rotated framing. Where bootstrap loads once at session start and drifts up the context, pinned reasserts itself every turn so hard rules don't decay into background. See [Pinned Rules & Forced Recall](/guide/pinned).
+- **System meta-rules layer** is hard-coded in mememory and prepended to every pinned payload — directives about working with the memory layer itself (recall mandate, code-vs-memory truth source, "rule violation = task failure"). Five formulations of each meta-rule rotate per render, plus rotated opening/closing imperatives, to defend against agent adaptation to a single phrasing.
+- **Forced recall via PreToolUse hook.** A new lock file (`${TMPDIR}/mememory-recall-pending-${session_id}`) is armed at SessionStart and removed by PostToolUse on `mcp__mememory__recall`. While the lock exists, `mememory recall-gate` denies any tool call that isn't an `mcp__mememory__*` tool — the agent physically cannot work on the user's task without first loading project context via recall. Stale locks (older than 24h) are garbage-collected at the next SessionStart.
+- **One-shot installer:** `mememory install-hooks` patches `~/.claude/settings.json` with all four hooks (SessionStart, UserPromptSubmit, PreToolUse, PostToolUse). Idempotent, preserves existing settings and foreign hooks, and writes a timestamped backup before any change. `--uninstall` removes them cleanly.
+- **CLI:** new commands `pinned`, `recall-gate`, `recall-ack`, `install-hooks`. `mememory setup` now interactively offers to install the hooks at the end of its run.
+- **MCP resources:** `mememory://pinned` and `mememory://pinned/{project}`.
+- **Soft budget warning** at 5,000 tokens for the pinned payload — informational, never blocks. Pinned must stay tight to act as a checklist; the warning surfaces when the payload is starting to dilute that effect.
+
+### Admin UI
+
+- **Pinned Preview page** at `/pinned` renders the exact payload your agent receives for any project, with token estimates and counts of pinned memories at each scope.
+- **Delivery filter** on the Memories page now includes `pinned`. The New Memory form lets you create pinned entries directly.
+- **Persona scope cleanup.** The legacy `persona` scope (removed from the backend long ago) is no longer surfaced anywhere in the admin UI — filter, form, badges, settings, search filter, and the leftover CSS token are all gone.
+
+### Notes
+
+- **Codex CLI** install-hooks parity is scheduled for the next release. Codex users can still wire `SessionStart → mememory bootstrap --hook` manually using the existing instructions; full pinned + forced-recall integration follows in 0.7.0.
+- **Backward compatibility.** No SQL migration. The `delivery` column is `TEXT`, so adding a new value is a Go-only change. Existing bootstrap and on_demand memories are untouched.
+
 ## Unreleased
 
 ### Refactor: pluggable connection

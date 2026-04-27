@@ -12,7 +12,7 @@ export function StatsCards({ stats }: StatsCardsProps) {
       <Card label="Total Memories" value={stats.total} accent="accent" />
       {Object.entries(stats.by_scope).map(([scope, count]) => (
         <Card key={scope} label={scope} value={count} accent={
-          scope === 'global' ? 'scope-global' : scope === 'project' ? 'scope-project' : 'scope-persona'
+          scope === 'global' ? 'scope-global' : 'scope-project'
         } />
       ))}
     </div>

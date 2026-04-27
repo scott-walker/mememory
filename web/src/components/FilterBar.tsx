@@ -5,7 +5,6 @@ interface Filters {
   type: string;
   delivery: string;
   project: string;
-  persona: string;
 }
 
 interface FilterBarProps {
@@ -13,9 +12,9 @@ interface FilterBarProps {
   onChange: (filters: Filters) => void;
 }
 
-const SCOPES: Array<Scope | ''> = ['', 'global', 'project', 'persona'];
+const SCOPES: Array<Scope | ''> = ['', 'global', 'project'];
 const TYPES: Array<MemoryType | ''> = ['', 'fact', 'rule', 'decision', 'feedback', 'context'];
-const DELIVERIES: Array<Delivery | ''> = ['', 'bootstrap', 'on_demand'];
+const DELIVERIES: Array<Delivery | ''> = ['', 'bootstrap', 'pinned', 'on_demand'];
 
 export function FilterBar({ filters, onChange }: FilterBarProps) {
   const update = (key: keyof Filters, value: string) => {
@@ -47,13 +46,6 @@ export function FilterBar({ filters, onChange }: FilterBarProps) {
         placeholder="Project"
         value={filters.project}
         onChange={(e) => update('project', e.target.value)}
-        className="h-9 px-3 text-sm bg-surface border border-border rounded-[var(--radius-sm)] text-text placeholder:text-text-muted w-32"
-      />
-      <input
-        type="text"
-        placeholder="Persona"
-        value={filters.persona}
-        onChange={(e) => update('persona', e.target.value)}
         className="h-9 px-3 text-sm bg-surface border border-border rounded-[var(--radius-sm)] text-text placeholder:text-text-muted w-32"
       />
     </div>

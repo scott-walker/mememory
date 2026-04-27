@@ -92,7 +92,6 @@ export function Settings() {
             <option value="">All scopes</option>
             <option value="global">global</option>
             <option value="project">project</option>
-            <option value="persona">persona</option>
           </select>
           <input value={bulkProject} onChange={(e) => setBulkProject(e.target.value)}
             placeholder="Project"

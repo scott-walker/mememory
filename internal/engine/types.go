@@ -28,4 +28,5 @@ const (
 
 	DeliveryBootstrap = t.DeliveryBootstrap
 	DeliveryOnDemand  = t.DeliveryOnDemand
+	DeliveryPinned    = t.DeliveryPinned
 )

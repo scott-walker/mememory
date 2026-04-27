@@ -32,11 +32,6 @@ export function MemoryCard({ memory, score, onDelete }: MemoryCardProps) {
               {memory.project}
             </span>
           )}
-          {memory.persona && (
-            <span className="text-xs text-text-muted">
-              / {memory.persona}
-            </span>
-          )}
         </div>
         {score !== undefined && (
           <div className="flex items-center gap-2 shrink-0">

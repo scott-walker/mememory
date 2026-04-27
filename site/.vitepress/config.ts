@@ -34,6 +34,7 @@ export default defineConfig({
             { text: 'Scopes & Hierarchy', link: '/guide/scopes' },
             { text: 'Scoring & Recall', link: '/guide/scoring' },
             { text: 'Session Bootstrap', link: '/guide/bootstrap' },
+            { text: 'Pinned Rules & Forced Recall', link: '/guide/pinned' },
           ],
         },
         {

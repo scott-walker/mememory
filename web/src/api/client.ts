@@ -1,4 +1,4 @@
-import type { Memory, RecallResult, StatsResult, RememberInput, RememberResult, RecallInput } from '../types';
+import type { Memory, RecallResult, StatsResult, RememberInput, RememberResult, RecallInput, PinnedPreview } from '../types';
 
 const BASE = '/api';
 
@@ -46,4 +46,9 @@ export const api = {
 
   import: (memories: RememberInput[]) =>
     request<{ imported: number }>('/memories/import', { method: 'POST', body: JSON.stringify(memories) }),
+
+  pinnedPreview: (project?: string) => {
+    const qs = project ? '?' + new URLSearchParams({ project }).toString() : '';
+    return request<PinnedPreview>(`/pinned/preview${qs}`);
+  },
 };

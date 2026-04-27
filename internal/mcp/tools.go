@@ -10,6 +10,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 	"github.com/scott-walker/mememory/internal/bootstrap"
 	"github.com/scott-walker/mememory/internal/engine"
+	"github.com/scott-walker/mememory/internal/pinned"
 )
 
 func RegisterTools(srv *server.MCPServer, svc *engine.Service) {
@@ -39,7 +40,7 @@ func registerRemember(srv *server.MCPServer, svc *engine.Service) {
 			mcpsdk.Description("Memory type: fact, rule, decision, feedback, context. Default: fact"),
 		),
 		mcpsdk.WithString("delivery",
-			mcpsdk.Description("Loading strategy: bootstrap (loaded at session start) or on_demand (loaded via recall/list). Default: on_demand"),
+			mcpsdk.Description("Loading strategy: bootstrap (loaded at session start), pinned (reinjected on every agent turn via UserPromptSubmit hook — for critical rules), or on_demand (loaded via recall/list). Default: on_demand"),
 		),
 		mcpsdk.WithString("tags",
 			mcpsdk.Description("Comma-separated tags for additional filtering"),
@@ -119,6 +120,30 @@ func registerRemember(srv *server.MCPServer, svc *engine.Service) {
 				allBootstrap = append(allBootstrap, projBootstrap...)
 			}
 			if warn := bootstrap.CheckBudget(allBootstrap); warn != "" {
+				data, _ := json.MarshalIndent(result.Memory, "", "  ")
+				return mcpsdk.NewToolResultText(fmt.Sprintf("WARNING: %s\n\nStored memory:\n%s", warn, data)), nil
+			}
+		}
+
+		// Soft budget check for pinned: informational only, memory is stored
+		// regardless. Pinned must stay tight to act as a per-turn checklist.
+		if result.Memory.Delivery == engine.DeliveryPinned {
+			proj := project
+			allPinned, _ := svc.List(ctx, engine.ListInput{
+				Scope:    "global",
+				Delivery: "pinned",
+				Limit:    100,
+			})
+			if proj != "" {
+				projPinned, _ := svc.List(ctx, engine.ListInput{
+					Scope:    "project",
+					Project:  proj,
+					Delivery: "pinned",
+					Limit:    100,
+				})
+				allPinned = append(allPinned, projPinned...)
+			}
+			if warn := pinned.CheckBudget(allPinned); warn != "" {
 				data, _ := json.MarshalIndent(result.Memory, "", "  ")
 				return mcpsdk.NewToolResultText(fmt.Sprintf("WARNING: %s\n\nStored memory:\n%s", warn, data)), nil
 			}
@@ -244,7 +269,7 @@ func registerList(srv *server.MCPServer, svc *engine.Service) {
 			mcpsdk.Description("Filter by type: fact, rule, decision, feedback, context"),
 		),
 		mcpsdk.WithString("delivery",
-			mcpsdk.Description("Filter by delivery: bootstrap, on_demand"),
+			mcpsdk.Description("Filter by delivery: bootstrap, pinned, on_demand"),
 		),
 		mcpsdk.WithNumber("limit",
 			mcpsdk.Description("Max results. Default: 20"),
@@ -371,10 +396,11 @@ Hierarchy: recall(project=Y) searches global + project:Y.
 
 | Delivery | Behavior |
 |----------|----------|
-| bootstrap | Loaded automatically at session start |
+| bootstrap | Loaded once at session start (SessionStart hook) |
+| pinned | Reinjected on every agent turn (UserPromptSubmit hook). For critical rules that must stay in working memory continuously |
 | on_demand | Loaded via recall/list when needed (default) |
 
-Any type can be bootstrap — e.g. a rule that must always be active, or a fact the agent needs from the start.
+Use pinned only for hard rules nakedly enforceable on every response (language, formatting, hard prohibitions). Use bootstrap for facts/context that frame the session but don't need to be in every turn. on_demand is the default for everything else.
 
 ## Key Parameters
 
@@ -415,7 +441,7 @@ Parameters:
 - scope (string): "global" | "project". Default: "global"
 - project (string): Project name. Required when scope=project.
 - type (string): "fact" | "rule" | "decision" | "feedback" | "context". Default: "fact"
-- delivery (string): "bootstrap" | "on_demand". Default: "on_demand". Bootstrap memories are loaded at session start; on_demand memories are fetched via recall/list.
+- delivery (string): "bootstrap" | "pinned" | "on_demand". Default: "on_demand". Bootstrap memories are loaded at session start; pinned memories are reinjected on every agent turn (use for critical rules); on_demand memories are fetched via recall/list.
 - tags (string): Comma-separated tags for filtering. E.g. "frontend, performance"
 - ttl (string): Auto-expire after duration. E.g. "24h", "7d", "30d". Omit for permanent.
 - weight (number): Confidence weight 0.1-1.0. Default: 1.0. Use lower values for uncertain or partially outdated beliefs.
@@ -520,7 +546,7 @@ Temporal/situational information. Often benefits from TTL.
 - "Currently refactoring auth flow, don't touch auth-store.ts"
 - "Sprint focus: Evidence Bundle implementation"
 
-Note: Any type can have delivery="bootstrap" to be loaded at session start, or delivery="on_demand" (default) to be fetched via recall/list.`
+Note: Any type can have delivery="bootstrap" (loaded at session start), delivery="pinned" (reinjected on every agent turn — for critical rules), or delivery="on_demand" (default, fetched via recall/list).`
 
 const helpExamples = `# Usage Examples
 
@@ -558,6 +584,15 @@ list(type="feedback")
 
 ## Browse all bootstrap memories
 list(delivery="bootstrap")
+
+## Browse all pinned memories (reinjected each turn)
+list(delivery="pinned")
+
+## Store a critical rule that must be checked on every turn
+remember(
+  content="Never use mocked databases in integration tests — only real DB",
+  scope="global", type="rule", delivery="pinned"
+)
 
 ## Browse project-specific rules
 list(scope="project", project="match", type="rule")

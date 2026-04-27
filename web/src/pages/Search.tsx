@@ -6,7 +6,6 @@ import { MemoryCard } from '../components/MemoryCard';
 export function Search() {
   const [query, setQuery] = useState('');
   const [project, setProject] = useState('');
-  const [persona, setPersona] = useState('');
   const [results, setResults] = useState<RecallResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -18,7 +17,6 @@ export function Search() {
       const r = await api.search({
         query: query.trim(),
         project: project || undefined,
-        persona: persona || undefined,
         limit: 10,
       });
       setResults(r);
@@ -26,7 +24,7 @@ export function Search() {
     } finally {
       setIsSearching(false);
     }
-  }, [query, project, persona]);
+  }, [query, project]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') handleSearch();
@@ -53,13 +51,6 @@ export function Search() {
             value={project}
             onChange={(e) => setProject(e.target.value)}
             placeholder="Project filter"
-            className="h-9 px-3 text-sm bg-bg border border-border rounded-[var(--radius-sm)] text-text placeholder:text-text-muted w-40"
-          />
-          <input
-            type="text"
-            value={persona}
-            onChange={(e) => setPersona(e.target.value)}
-            placeholder="Persona filter"
             className="h-9 px-3 text-sm bg-bg border border-border rounded-[var(--radius-sm)] text-text placeholder:text-text-muted w-40"
           />
           <button

@@ -1,13 +1,12 @@
-export type Scope = 'global' | 'project' | 'persona';
+export type Scope = 'global' | 'project';
 export type MemoryType = 'fact' | 'rule' | 'decision' | 'feedback' | 'context';
-export type Delivery = 'bootstrap' | 'on_demand';
+export type Delivery = 'bootstrap' | 'pinned' | 'on_demand';
 
 export interface Memory {
   id: string;
   content: string;
   scope: Scope;
   project?: string;
-  persona?: string;
   type: MemoryType;
   delivery: Delivery;
   tags?: string[];
@@ -27,7 +26,6 @@ export interface StatsResult {
   total: number;
   by_scope: Record<string, number>;
   by_project: Record<string, number>;
-  by_persona: Record<string, number>;
   by_type: Record<string, number>;
   by_delivery: Record<string, number>;
 }
@@ -36,7 +34,6 @@ export interface RememberInput {
   content: string;
   scope: Scope;
   project?: string;
-  persona?: string;
   type: MemoryType;
   delivery?: Delivery;
   tags?: string[];
@@ -49,8 +46,16 @@ export interface RecallInput {
   query: string;
   scope?: string;
   project?: string;
-  persona?: string;
   limit?: number;
+}
+
+export interface PinnedPreview {
+  markdown: string;
+  stats: {
+    global: number;
+    project: number;
+    tokens: number;
+  };
 }
 
 export interface ContradictionMatch {

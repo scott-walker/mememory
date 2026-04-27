@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -133,6 +134,86 @@ func TestCheckBudget_OverBudget(testT *testing.T) {
 func TestCheckBudget_Empty(testT *testing.T) {
 	if got := CheckBudget(nil); got != "" {
 		testT.Errorf("CheckBudget for nil should be empty, got %q", got)
+	}
+}
+
+func TestFormatHookJSON_EmptyContextReturnsEmpty(testT *testing.T) {
+	out, err := FormatHookJSON(Context{})
+	if err != nil {
+		testT.Fatalf("FormatHookJSON error: %v", err)
+	}
+	if out != "" {
+		testT.Errorf("empty context should produce empty string, got %q", out)
+	}
+}
+
+func TestFormatHookJSON_WrapsMarkdownInEnvelope(testT *testing.T) {
+	out, err := FormatHookJSON(Context{
+		Project: ProjectInfo{Name: "plexo", Source: "test"},
+		GlobalMems: []t.Memory{
+			{Content: "global rule", Type: t.TypeRule, Delivery: t.DeliveryBootstrap, Scope: t.ScopeGlobal},
+		},
+	})
+	if err != nil {
+		testT.Fatalf("FormatHookJSON error: %v", err)
+	}
+	if out == "" {
+		testT.Fatal("non-empty context should produce JSON, got empty")
+	}
+
+	var parsed struct {
+		HookSpecificOutput struct {
+			HookEventName     string `json:"hookEventName"`
+			AdditionalContext string `json:"additionalContext"`
+		} `json:"hookSpecificOutput"`
+	}
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		testT.Fatalf("output is not valid JSON: %v\npayload: %s", err, out)
+	}
+
+	if parsed.HookSpecificOutput.HookEventName != "SessionStart" {
+		testT.Errorf("hookEventName = %q, want SessionStart", parsed.HookSpecificOutput.HookEventName)
+	}
+	if !strings.Contains(parsed.HookSpecificOutput.AdditionalContext, "## System") {
+		testT.Error("additionalContext missing ## System block")
+	}
+	if !strings.Contains(parsed.HookSpecificOutput.AdditionalContext, "global rule") {
+		testT.Error("additionalContext missing memory content")
+	}
+	if !strings.Contains(parsed.HookSpecificOutput.AdditionalContext, "## Bootstrap Stats") {
+		testT.Error("additionalContext missing stats block")
+	}
+}
+
+func TestFormatHookJSON_EscapesSpecialCharacters(testT *testing.T) {
+	// Memory content with characters that must be escaped inside a JSON string:
+	// double quotes, backslashes, newlines, and tabs. The output must remain
+	// parseable JSON and the unmarshaled content must match exactly.
+	content := "line1 \"quoted\"\nline2\t\\back"
+	out, err := FormatHookJSON(Context{
+		GlobalMems: []t.Memory{
+			{Content: content, Type: t.TypeRule, Delivery: t.DeliveryBootstrap, Scope: t.ScopeGlobal},
+		},
+	})
+	if err != nil {
+		testT.Fatalf("FormatHookJSON error: %v", err)
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+		testT.Fatalf("output is not valid JSON: %v\npayload: %s", err, out)
+	}
+
+	hso, ok := parsed["hookSpecificOutput"].(map[string]any)
+	if !ok {
+		testT.Fatal("hookSpecificOutput missing or wrong type")
+	}
+	ac, ok := hso["additionalContext"].(string)
+	if !ok {
+		testT.Fatal("additionalContext missing or wrong type")
+	}
+	if !strings.Contains(ac, content) {
+		testT.Errorf("additionalContext did not round-trip special characters, got %q", ac)
 	}
 }
 

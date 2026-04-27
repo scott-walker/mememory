@@ -2,6 +2,10 @@
 
 Session bootstrap solves the cold-start problem: when an agent starts a new session, it has no memory of past interactions. Bootstrap loads **only memories with `type=bootstrap`** into the agent's system prompt at session start. Every other memory type is retrieved on demand via `recall` once the session is running.
 
+::: tip See also
+For rules that must be reinjected on **every** agent turn rather than only at session start, see [Pinned Rules & Forced Recall](pinned). Bootstrap and pinned are complementary: bootstrap handles facts and framing the agent should know once; pinned handles hard imperatives the agent must verify against on every response.
+:::
+
 ## How It Works
 
 ```
@@ -63,9 +67,24 @@ If the Admin API is unreachable, `mememory bootstrap` exits silently — the age
 
 ## Hook Configuration
 
+Both Claude Code and OpenAI Codex CLI support the same `SessionStart` hook protocol: a command-line program prints a JSON envelope to stdout, the runner parses it silently, and the `additionalContext` field is injected into the model context without echoing anything to the user's terminal.
+
+The `--hook` flag on `mememory bootstrap` emits exactly that envelope:
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "SessionStart",
+    "additionalContext": "<markdown bootstrap payload>"
+  }
+}
+```
+
+Use `--hook` in every hook configuration below. Without it, the CLI prints raw Markdown — fine for manual inspection in a terminal, noisy inside a hook runner that does not treat raw stdout as silent context.
+
 ### Claude Code
 
-Add a `SessionStart` hook in your Claude Code settings (`~/.claude/settings.json`):
+Add a `SessionStart` hook in `~/.claude/settings.json`:
 
 ```json
 {
@@ -73,14 +92,53 @@ Add a `SessionStart` hook in your Claude Code settings (`~/.claude/settings.json
     "SessionStart": [
       {
         "type": "command",
-        "command": "mememory bootstrap"
+        "command": "mememory bootstrap --hook"
       }
     ]
   }
 }
 ```
 
-This runs `mememory bootstrap` every time a new Claude Code session starts. The project is auto-detected from the working directory's git root.
+### OpenAI Codex CLI
+
+Enable hooks in `~/.codex/config.toml`:
+
+```toml
+[features]
+codex_hooks = true
+```
+
+Add a `SessionStart` hook in `~/.codex/hooks.json`:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mememory bootstrap --hook"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Codex parses the `hookSpecificOutput` envelope silently and injects `additionalContext` into the session — no terminal output, same behaviour as Claude Code.
+
+### Manual inspection
+
+Running without `--hook` prints the raw Markdown so you can eyeball what the agent receives:
+
+```bash
+mememory bootstrap                   # human-readable Markdown
+mememory bootstrap --hook            # JSON envelope for hook runners
+mememory bootstrap --project myapp   # override project detection
+```
 
 ### Custom URL
 

@@ -4,6 +4,7 @@ import { NavLink } from 'react-router-dom';
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: '◆' },
   { to: '/memories', label: 'Memories', icon: '◉' },
+  { to: '/pinned', label: 'Pinned Preview', icon: '◈' },
   { to: '/search', label: 'Search', icon: '⊕' },
   { to: '/settings', label: 'Settings', icon: '⚙' },
 ];

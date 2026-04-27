@@ -21,7 +21,9 @@ Store, search, and deliver knowledge across sessions. MCP server with PostgreSQL
 
 - **Stores** memories with scope, type, weight, tags, and TTL
 - **Searches** by semantic similarity with hierarchical scope inheritance
-- **Delivers** accumulated rules and knowledge to agents at session start
+- **Delivers** at three points: bootstrap (session start), pinned (every agent turn), or on_demand (via recall)
+- **Pins** critical rules so they reinject every turn — wrapped in `<system-reminder>` with rotated framing so they can't fade into background
+- **Forces** `recall` as the agent's first operation in every session via a PreToolUse gate — physical block, not a hint
 - **Detects** contradictions when new memories conflict with existing ones
 - **Evolves** beliefs through supersede/weight mechanisms without losing history
 

@@ -27,6 +27,7 @@ func NewRouter(svc *engine.Service) http.Handler {
 
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/stats", h.Stats)
+		r.Get("/pinned/preview", h.PinnedPreview)
 
 		r.Route("/memories", func(r chi.Router) {
 			r.Get("/", h.List)

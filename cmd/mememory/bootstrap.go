@@ -13,26 +13,40 @@ import (
 	"time"
 
 	"github.com/scott-walker/mememory/internal/bootstrap"
+	"github.com/scott-walker/mememory/internal/hooks"
 	"github.com/scott-walker/mememory/internal/projectconfig"
 	t "github.com/scott-walker/mememory/internal/types"
 )
 
+// staleLockMaxAge is how long a recall-pending lock file can sit on disk
+// before bootstrap considers it abandoned (Claude Code crash, machine
+// reboot) and removes it. 24h is generous — sessions normally live minutes
+// to hours, never days.
+const staleLockMaxAge = 24 * time.Hour
+
 type bootstrapArgs struct {
 	project string
 	url     string
+	hook    bool
 }
 
 func parseBootstrapArgs(args []string) bootstrapArgs {
 	ba := bootstrapArgs{url: envOrDefault("MEMORY_URL", defaultAdminURL)}
 
-	for i := 0; i < len(args)-1; i++ {
+	for i := 0; i < len(args); i++ {
 		switch args[i] {
+		case "--hook":
+			ba.hook = true
 		case "--project":
-			ba.project = args[i+1]
-			i++
+			if i+1 < len(args) {
+				ba.project = args[i+1]
+				i++
+			}
 		case "--url":
-			ba.url = args[i+1]
-			i++
+			if i+1 < len(args) {
+				ba.url = args[i+1]
+				i++
+			}
 		}
 	}
 
@@ -44,6 +58,17 @@ func runBootstrap(args bootstrapArgs) error {
 	// are non-fatal: an unknown project just means we cannot fetch the
 	// project-scoped slice — globals still load and the report will say so.
 	project := detectProject(args.project)
+
+	// Hook mode: read session info from stdin (Claude Code SessionStart payload)
+	// and arm the forced-recall lock. Garbage-collect stale locks at the same
+	// time so crashed sessions don't accumulate. Manual runs (TTY stdin) skip
+	// this entirely — ReadHookInputFromStdin returns an empty input.
+	if args.hook {
+		if input, err := hooks.ReadHookInputFromStdin(); err == nil && input.SessionID != "" {
+			_ = hooks.CreateLock(input.SessionID)
+		}
+		_, _ = hooks.CleanStaleLocks(staleLockMaxAge)
+	}
 
 	client := &http.Client{Timeout: 5 * time.Second}
 
@@ -64,13 +89,24 @@ func runBootstrap(args bootstrapArgs) error {
 		return nil
 	}
 
-	output := bootstrap.Format(bootstrap.Context{
+	bctx := bootstrap.Context{
 		Project:     project,
 		GlobalMems:  globalMems,
 		ProjectMems: projectMems,
-	})
+	}
 
-	fmt.Print(output)
+	if args.hook {
+		payload, err := bootstrap.FormatHookJSON(bctx)
+		if err != nil {
+			return err
+		}
+		if payload != "" {
+			fmt.Println(payload)
+		}
+		return nil
+	}
+
+	fmt.Print(bootstrap.Format(bctx))
 	return nil
 }
 
