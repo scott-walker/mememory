@@ -213,7 +213,7 @@ If you built the binary locally instead of using Docker:
     "mememory": {
       "command": "/path/to/mememory-server",
       "env": {
-        "DATABASE_URL": "postgres://mememory:memory@localhost:5432/mememory?sslmode=disable",
+        "DATABASE_URL": "postgres://mememory:mememory@localhost:5432/mememory?sslmode=disable",
         "OLLAMA_URL": "http://localhost:11434"
       }
     }
